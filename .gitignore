@@ -1,0 +1,12 @@
+# local overrides
+*.local
+
+# editor
+*.swp
+*.swo
+*~
+.netrwhist
+
+# os
+.DS_Store
+Thumbs.db

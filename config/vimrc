@@ -1,0 +1,89 @@
+" minimal vimrc for servers
+let mapleader=" "
+
+set nocompatible
+filetype plugin indent on
+syntax on
+
+" basics
+set autoindent
+set expandtab
+set tabstop=4
+set shiftwidth=4
+set nostartofline
+
+" ui
+set cursorline
+set relativenumber
+set number
+set showmatch
+set hidden
+set laststatus=2
+set ruler
+set showcmd
+
+" search
+set hlsearch
+set incsearch
+
+" behavior
+set formatoptions-=cro
+set shortmess=atI
+set vb t_vb=
+set backupdir=/tmp
+set directory=/tmp
+
+" diff
+set diffopt+=algorithm:patience
+
+" folds
+set foldcolumn=1
+set foldminlines=0
+set foldopen-=search
+
+" encoding
+if has("multi_byte")
+  set encoding=utf-8
+  setglobal fileencoding=utf-8
+endif
+
+" escape
+inoremap kj <Esc>
+vnoremap kj <Esc>
+
+" window navigation
+noremap <C-L> <C-W><C-L>
+noremap <C-H> <C-W><C-H>
+noremap <C-K> <C-W><C-K>
+noremap <C-J> <C-W><C-J>
+
+" centered scrolling
+map n nzzzv
+map N Nzzzv
+map j jzz
+map k kzz
+map <C-d> <C-d>zz
+map <C-u> <C-u>zz
+
+" keep selection after indent
+vnoremap < <gv
+vnoremap > >gv
+
+" leader mappings
+noremap <Leader>y "*y
+noremap <Leader>p "*p
+noremap <Leader>w :update!<CR>
+noremap <Leader>q :q!<CR>
+noremap <Leader>e :Ex<CR>
+nnoremap <BS> <C-^>
+
+" ripgrep
+if executable('rg')
+    set grepprg=rg\ --vimgrep\ --no-heading
+endif
+
+" wildignore
+set wildignore+=.*,dist/*,target/*,.git/*,node_modules/*,__pycache__/*
+
+" colorscheme
+colorscheme desert

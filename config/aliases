@@ -1,0 +1,92 @@
+#!/bin/bash
+# server aliases - portable, no GUI/Windows dependencies
+
+# navigation
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias cdr="cd ~/repos"
+
+# listing
+if command -v eza &>/dev/null; then
+    alias ls='eza'
+    alias ll='eza -l --icons --group-directories-first'
+    alias la='eza -la --icons --group-directories-first'
+    alias lt='eza --tree --level=2 --icons'
+else
+    alias ll='ls -lh --color=auto'
+    alias la='ls -lah --color=auto'
+fi
+
+# editors
+alias vim='nvim'
+alias vi='nvim'
+alias v='nvim'
+
+# quick config edits
+alias goa="nvim ~/.aliases"
+alias gob="nvim ~/.bashrc"
+alias gov="nvim ~/.vimrc"
+alias gon="nvim ~/.config/nvim/"
+alias got="nvim ~/.config/tmux/tmux.conf"
+alias gol="nvim ~/.config/lazygit/config.yml"
+
+# source configs
+alias sb="source ~/.bashrc"
+alias st="tmux source ~/.config/tmux/tmux.conf"
+
+# git
+alias gs="git status"
+alias ga="git add"
+alias gb="git branch"
+alias gc="git commit"
+alias gd="git diff"
+alias gp="git push"
+alias gl="git pull"
+alias gco="git checkout"
+alias glog="git log --oneline --graph --decorate -20"
+alias lg="lazygit"
+
+# tools
+alias hf="history | fzf -e"
+alias path='tr ":" "\n" <<< "$PATH"'
+
+# fzf file picker
+if command -v fzf &>/dev/null; then
+    if command -v bat &>/dev/null; then
+        alias e='fzf -m --preview "bat --color=always {}" | xargs -o ${EDITOR:-nvim}'
+    else
+        alias e='fzf -m | xargs -o ${EDITOR:-nvim}'
+    fi
+fi
+
+# bat
+command -v bat &>/dev/null && alias cat='bat --paging=never'
+
+# python
+alias py='python3'
+
+# safer defaults
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'
+
+# disk
+alias df='df -h'
+alias duh='du -h --max-depth=1 | sort -h'
+
+# processes
+alias psg='ps aux | grep -v grep | grep'
+
+# network
+alias ports='ss -tulanp 2>/dev/null || netstat -tulanp'
+
+# system info
+alias meminfo='free -h'
+alias cpuinfo='lscpu | head -20'
+
+# tmux
+alias t='tmux'
+alias ta='tmux attach -t'
+alias tls='tmux list-sessions'
+alias tn='tmux new-session -s'
