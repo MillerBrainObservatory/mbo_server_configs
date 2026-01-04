@@ -1,80 +1,94 @@
 # mbo_server_configs
 
-minimal configs for linux servers and scientific computing environments.
-no sudo required - everything installs to `~/.local`.
+admin setup script for configuring windows machines for lab users.
+run once on a new user's machine to set up their dev environment.
 
 ## quick install
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/MillerBrainObservatory/mbo_server_configs/main/install.sh | bash
+**requires admin powershell:**
+
+```powershell
+iex (irm https://raw.githubusercontent.com/MillerBrainObservatory/mbo_server_configs/main/install.ps1)
 ```
 
 or clone and run:
 
-```bash
-git clone https://github.com/MillerBrainObservatory/mbo_server_configs.git ~/.mbo_server_configs
-cd ~/.mbo_server_configs && ./install.sh
+```powershell
+git clone https://github.com/MillerBrainObservatory/mbo_server_configs.git
+cd mbo_server_configs
+.\install.ps1
 ```
 
-## what's included
+## what it does
+
+### IDEs
+- **VS Code** - primary editor
+- **PyCharm Community** - python IDE
+- **Neovim** - terminal editor with LSP, Telescope, Treesitter
+
+### terminal setup
+- installs **PowerShell Core** (pwsh.exe) and sets as default
+- **hides legacy Windows PowerShell** from terminal
+- installs **JetBrainsMono Nerd Font** and sets as terminal font
+- installs **FiraCode** font
+- configures Windows Terminal settings automatically
+
+### dev tools (via winget)
+- git, lazygit
+- fd, ripgrep, fzf, zoxide
+- starship (prompt), bat, delta, eza
+
+### python (via uv)
+- **uv** - fast python package manager
+- **python 3.12** - managed by uv (not system python)
+- **ruff** - fast linter
+- **ty** - type checker
+- neovim python provider (pynvim)
+- disables Windows Store python aliases
 
 ### configs
-- **neovim** - minimal kickstart-based config with lsp, telescope, treesitter
-- **tmux** - sensible defaults, vim navigation, tpm plugin manager
-- **bash** - portable bashrc with starship prompt fallback
-- **lazygit** - terminal git ui config
-- **starship** - cross-shell prompt (nerd font symbols)
+symlinked to `~/.mbo_server_configs/config/`:
+- neovim (`%LOCALAPPDATA%\nvim`)
+- lazygit (`~/.config/lazygit`)
+- starship (`~/.config/starship.toml`)
+- vim (`~/.vimrc`)
 
-### optional tools (prebuilt binaries)
-installed to `~/.local/bin`, no package manager needed:
-
-| tool | description |
-|------|-------------|
-| neovim | text editor |
-| fzf | fuzzy finder |
-| ripgrep | fast grep |
-| fd | fast find |
-| lazygit | git tui |
-| starship | prompt |
-| zoxide | smart cd |
-| bat | cat with syntax highlighting |
-| delta | git diff viewer |
-| eza | modern ls |
-
-## customization
-
-machine-specific configs (not tracked):
-- `~/.bashrc.local` - local shell customizations
-- `~/.gitconfig.local` - local git config
+### powershell profile
+creates profile with:
+- aliases: `lg`, `vim`, `vi`, `g`, `ll`, `la`
+- git shortcuts: `gs`, `ga`, `gc`, `gp`, `gl`, `gd`, `gco`, `gb`, `glog`
+- starship prompt
+- zoxide (smart cd)
 
 ## structure
 
 ```
 mbo_server_configs/
-├── install.sh          # main installer
+├── install.ps1         # windows admin setup script
+├── install.sh          # linux server script (optional)
 ├── config/
-│   ├── bashrc          # shell config
-│   ├── aliases         # shell aliases
-│   ├── vimrc           # vim config
-│   ├── starship.toml   # prompt config
 │   ├── nvim/           # neovim config
 │   │   └── init.lua
-│   ├── tmux/           # tmux config
+│   ├── tmux/           # tmux config (linux)
 │   │   └── tmux.conf
-│   ├── lazygit/        # lazygit config
+│   ├── lazygit/
 │   │   └── config.yml
-│   └── btop/           # btop themes
+│   ├── starship.toml
+│   ├── vimrc
+│   └── btop/
 └── README.md
 ```
 
 ## post-install
 
-1. restart shell or `source ~/.bashrc`
-2. open `nvim` - plugins auto-install
-3. run `:checkhealth` to verify
+1. **close and reopen Windows Terminal** (required)
+2. terminal should now open pwsh with nerd font
+3. legacy Windows PowerShell is hidden
+4. run `nvim` - plugins auto-install on first launch
+5. run `:checkhealth` in nvim to verify
 
 ## requirements
 
-- git
-- curl
-- bash
+- windows 10/11
+- **admin privileges** (required for symlinks, fonts, terminal config)
+- winget (App Installer from Microsoft Store)
