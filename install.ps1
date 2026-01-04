@@ -4,7 +4,7 @@
 # Downloads and installs:
 #   - PowerShell Core: latest MSI from GitHub (PowerShell/PowerShell)
 #   - CLI tools: latest releases from GitHub (lazygit, fd, ripgrep, fzf, bat, delta, eza, zoxide, starship, fastfetch)
-#   - IDEs: VS Code (code.visualstudio.com), Neovim (GitHub)
+#   - IDEs: VS Code (pwsh terminal, ~/mbo/envs python path), Neovim (GitHub)
 #   - Python: uv package manager (GitHub), Python 3.12, ruff, ty
 #   - Fonts: JetBrainsMono Nerd Font, FiraCode (GitHub)
 #
@@ -329,6 +329,60 @@ function Install-VSCode {
     Write-Ok "vscode installed"
 }
 
+function Set-VSCodeConfig {
+    Write-Info "configuring vscode..."
+
+    $settingsPath = "$env:APPDATA\Code\User\settings.json"
+    $settingsDir = Split-Path $settingsPath -Parent
+
+    if (-not (Test-Path $settingsDir)) {
+        New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null
+    }
+
+    # load existing settings or create new
+    if (Test-Path $settingsPath) {
+        try {
+            $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json -AsHashtable
+        } catch {
+            Write-Warn "could not parse vscode settings, creating new"
+            $settings = @{}
+        }
+    } else {
+        $settings = @{}
+    }
+
+    # set pwsh as default terminal
+    $settings["terminal.integrated.defaultProfile.windows"] = "PowerShell"
+
+    # ensure terminal profiles exist
+    if (-not $settings.ContainsKey("terminal.integrated.profiles.windows")) {
+        $settings["terminal.integrated.profiles.windows"] = @{}
+    }
+    $settings["terminal.integrated.profiles.windows"]["PowerShell"] = @{
+        source = "PowerShell"
+        icon = "terminal-powershell"
+    }
+
+    # add mbo/envs to python venv folders
+    $mboEnvs = "$env:USERPROFILE\mbo\envs"
+    if (-not $settings.ContainsKey("python.venvFolders")) {
+        $settings["python.venvFolders"] = @()
+    }
+    $venvFolders = [System.Collections.ArrayList]@($settings["python.venvFolders"])
+    if ($venvFolders -notcontains $mboEnvs -and $venvFolders -notcontains "~/mbo/envs") {
+        $venvFolders.Add("~/mbo/envs") | Out-Null
+        $settings["python.venvFolders"] = @($venvFolders)
+    }
+
+    # set font
+    $settings["editor.fontFamily"] = "'JetBrainsMono Nerd Font', Consolas, 'Courier New', monospace"
+    $settings["terminal.integrated.fontFamily"] = "JetBrainsMono Nerd Font"
+
+    # save
+    $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
+    Write-Ok "vscode configured (pwsh terminal, python envs: ~/mbo/envs)"
+}
+
 # ============================================================================
 # CLI TOOLS (from GitHub releases)
 # ============================================================================
@@ -546,14 +600,10 @@ function Set-WindowsTerminalConfig {
     Copy-Item $settingsPath $backup -Force
     Write-Info "backed up to $backup"
 
-    $content = Get-Content $settingsPath -Raw
-    # strip comments
-    $content = $content -replace '//.*', '' -replace '/\*[\s\S]*?\*/', ''
-
     try {
-        $settings = $content | ConvertFrom-Json
+        $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
     } catch {
-        Write-Warn "could not parse settings.json"
+        Write-Warn "could not parse settings.json: $_"
         return
     }
 
@@ -565,11 +615,18 @@ function Set-WindowsTerminalConfig {
         $settings.profiles | Add-Member -NotePropertyName "defaults" -NotePropertyValue @{}
     }
 
-    # set font
-    $settings.profiles.defaults | Add-Member -NotePropertyName "font" -NotePropertyValue @{
+    # set font on defaults
+    $fontConfig = @{
         face = "JetBrainsMono Nerd Font"
         size = 11
-    } -Force
+    }
+    $settings.profiles.defaults | Add-Member -NotePropertyName "font" -NotePropertyValue $fontConfig -Force
+
+    # set font on all existing profiles
+    foreach ($profile in $settings.profiles.list) {
+        $profile | Add-Member -NotePropertyName "font" -NotePropertyValue $fontConfig -Force
+    }
+    Write-Ok "set JetBrainsMono Nerd Font on all profiles"
 
     # find/create pwsh profile
     $pwshPath = "$env:ProgramFiles\PowerShell\7\pwsh.exe"
@@ -681,6 +738,37 @@ function Install-Configs {
 # POWERSHELL PROFILE
 # ============================================================================
 
+function Get-ShellPreferences {
+    Write-Host ""
+    Write-Host "  Shell Enhancement Options" -ForegroundColor Cyan
+    Write-Host "  Replace built-in commands with modern alternatives?" -ForegroundColor White
+    Write-Host ""
+
+    $prefs = @{
+        ReplaceLs = $true
+        ReplaceCat = $true
+        ReplaceCd = $true
+    }
+
+    # ls -> eza
+    Write-Host "  [1] ls -> eza (icons, colors, better formatting)" -ForegroundColor Gray
+    $response = Read-Host "      Replace ls? [Y/n] (recommended)"
+    $prefs.ReplaceLs = ($response -eq "" -or $response -match "^[Yy]")
+
+    # cat -> bat
+    Write-Host "  [2] cat -> bat (syntax highlighting)" -ForegroundColor Gray
+    $response = Read-Host "      Replace cat? [Y/n] (recommended)"
+    $prefs.ReplaceCat = ($response -eq "" -or $response -match "^[Yy]")
+
+    # cd -> z (zoxide)
+    Write-Host "  [3] cd -> z (zoxide smart jump)" -ForegroundColor Gray
+    $response = Read-Host "      Replace cd? [Y/n] (recommended)"
+    $prefs.ReplaceCd = ($response -eq "" -or $response -match "^[Yy]")
+
+    Write-Host ""
+    return $prefs
+}
+
 function Install-PowerShellProfile {
     Write-Info "setting up powershell profile..."
 
@@ -691,6 +779,19 @@ function Install-PowerShellProfile {
         New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
     }
 
+    # check if already configured
+    if (Test-Path $profilePath) {
+        $existing = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
+        if ($existing -match "MBO PowerShell Profile") {
+            Write-Ok "profile already configured"
+            return
+        }
+    }
+
+    # get user preferences
+    $prefs = Get-ShellPreferences
+
+    # build profile content
     $content = @'
 # MBO PowerShell Profile
 
@@ -703,12 +804,55 @@ Set-Alias -Name vim -Value nvim -ErrorAction SilentlyContinue
 Set-Alias -Name vi -Value nvim -ErrorAction SilentlyContinue
 Set-Alias -Name g -Value git -ErrorAction SilentlyContinue
 
-function ll { eza -l --icons --group-directories-first @args }
-function la { eza -la --icons --group-directories-first @args }
+'@
+
+    # ls replacements
+    if ($prefs.ReplaceLs) {
+        $content += @'
+# ls -> eza (size, icon, name by default)
+Remove-Item Alias:ls -Force -ErrorAction SilentlyContinue
+function ls { eza -l --icons --group-directories-first --no-permissions --no-time --no-user @args }
+function lsv { eza -l --icons --group-directories-first @args }
+function la { eza -la --icons --group-directories-first --no-permissions --no-time --no-user @args }
+function lt { eza -T --icons --group-directories-first @args }
+
+'@
+    }
+
+    # cat replacement
+    if ($prefs.ReplaceCat) {
+        $content += @'
+# cat -> bat (syntax highlighting)
+Remove-Item Alias:cat -Force -ErrorAction SilentlyContinue
+function cat { bat --paging=never @args }
+
+'@
+    }
+
+    # cd replacement and zoxide
+    if ($prefs.ReplaceCd) {
+        $content += @'
+# cd -> zoxide (smart directory jump)
+if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+    Invoke-Expression (& { (zoxide init powershell --cmd cd | Out-String) })
+}
+
+'@
+    } else {
+        $content += @'
+# zoxide (use z to jump)
+if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+    Invoke-Expression (& { (zoxide init powershell | Out-String) })
+}
+
+'@
+    }
+
+    $content += @'
 function .. { Set-Location .. }
 function ... { Set-Location ..\.. }
 
-# git
+# git shortcuts
 function gs { git status @args }
 function ga { git add @args }
 function gc { git commit @args }
@@ -718,12 +862,7 @@ function gd { git diff @args }
 function gco { git checkout @args }
 function glog { git log --oneline --graph --decorate -20 @args }
 
-# zoxide
-if (Get-Command zoxide -ErrorAction SilentlyContinue) {
-    Invoke-Expression (& { (zoxide init powershell | Out-String) })
-}
-
-# starship
+# starship prompt
 if (Get-Command starship -ErrorAction SilentlyContinue) {
     Invoke-Expression (&starship init powershell)
 }
@@ -733,21 +872,17 @@ if (Get-Command fastfetch -ErrorAction SilentlyContinue) {
     fastfetch
     Write-Host ""
     Write-Host "  quick reference" -ForegroundColor Cyan
-    Write-Host "    cd <path>    change directory         ll          list files" -ForegroundColor Gray
-    Write-Host "    z <name>     jump to frecent dir      la          list all (hidden)" -ForegroundColor Gray
+    Write-Host "    ls           size + icon + name       lsv         detailed list" -ForegroundColor Gray
+    Write-Host "    lt           tree view                la          list all (hidden)" -ForegroundColor Gray
+    Write-Host "    cd <name>    smart jump (zoxide)      cd -        go back" -ForegroundColor Gray
     Write-Host "    fd <pat>     find files               rg <pat>    search contents" -ForegroundColor Gray
-    Write-Host "    nvim         editor                   lg          lazygit" -ForegroundColor Gray
-    Write-Host "    uv run       run python script        bat <file>  view with syntax" -ForegroundColor Gray
+    Write-Host "    cat <file>   view with syntax         nvim        editor" -ForegroundColor Gray
+    Write-Host "    lg           lazygit                  uv run      run python script" -ForegroundColor Gray
     Write-Host ""
 }
 '@
 
     if (Test-Path $profilePath) {
-        $existing = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
-        if ($existing -match "MBO PowerShell Profile") {
-            Write-Ok "profile already configured"
-            return
-        }
         Add-Content -Path $profilePath -Value "`n`n$content"
     } else {
         Set-Content -Path $profilePath -Value $content
@@ -764,7 +899,8 @@ function Show-Summary {
     Write-Host "Setup Complete" -ForegroundColor Green
     Write-Host ""
     Write-Host "  IDEs:" -ForegroundColor White
-    Write-Host "    VS Code, Neovim" -ForegroundColor Gray
+    Write-Host "    VS Code (pwsh terminal, ~/mbo/envs for python)" -ForegroundColor Gray
+    Write-Host "    Neovim" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Terminal:" -ForegroundColor White
     Write-Host "    pwsh (default), legacy PS hidden" -ForegroundColor Gray
@@ -795,6 +931,7 @@ function Main {
     Install-Git
     Install-Neovim
     Install-VSCode
+    Set-VSCodeConfig
     Install-CliTools
     Install-Python
     Install-Configs

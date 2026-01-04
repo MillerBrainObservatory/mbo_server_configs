@@ -1,79 +1,50 @@
-# starship config - nerd font symbols
-"$schema" = 'https://starship.rs/config-schema.json'
+# simple prompt: user@host path [git] $
+format = """
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_status\
+$python\
+$character"""
 
-[aws]
-symbol = " "
-
-[c]
-symbol = " "
-
-[conda]
-symbol = " "
-
-[directory]
-read_only = " 󰌾"
-
-[docker_context]
-symbol = " "
-
-[git_branch]
-symbol = " "
-
-[git_commit]
-tag_symbol = '  '
-
-[golang]
-symbol = " "
+[username]
+show_always = true
+format = "[$user]($style)@"
+style_user = "bold blue"
 
 [hostname]
-ssh_symbol = " "
+ssh_only = false
+format = "[$hostname]($style) "
+style = "bold blue"
 
-[java]
-symbol = " "
+[directory]
+truncation_length = 3
+truncate_to_repo = true
+style = "bold cyan"
 
-[lua]
-symbol = " "
+[git_branch]
+symbol = ""
+format = "[$symbol$branch]($style)"
+style = "green"
 
-[memory_usage]
-symbol = "󰍛 "
-
-[nodejs]
-symbol = " "
-
-[os]
-disabled = false
-
-[os.symbols]
-Alpine = " "
-Amazon = " "
-Arch = " "
-CentOS = " "
-Debian = " "
-Fedora = " "
-Linux = " "
-Macos = " "
-Raspbian = " "
-Redhat = " "
-RedHatEnterprise = " "
-RockyLinux = " "
-SUSE = " "
-Ubuntu = " "
-Unknown = " "
-
-[package]
-symbol = "󰏗 "
+[git_status]
+format = "$conflicted$stashed$staged$modified$untracked$ahead_behind "
+conflicted = "[*](bold red)"
+stashed = ""
+staged = "[•](yellow)"
+modified = "[•](yellow)"
+renamed = "[•](yellow)"
+deleted = "[•](yellow)"
+untracked = "[•](green)"
+ahead = "[↑](cyan)"
+behind = "[↓](cyan)"
+diverged = "[↕](cyan)"
 
 [python]
-symbol = " "
+format = "[${pyenv_prefix}(${version} )(\\($virtualenv\\) )]($style)"
+style = "yellow"
 
-[rlang]
-symbol = "󰟔 "
-
-[ruby]
-symbol = " "
-
-[rust]
-symbol = "󱘗 "
-
-[status]
-symbol = " "
+[character]
+success_symbol = "[>](bold green)"
+error_symbol = "[>](bold red)"
