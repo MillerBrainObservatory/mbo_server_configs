@@ -548,19 +548,37 @@ function Install-Python {
 
     # neovim python venv
     $nvimVenv = "$env:LOCALAPPDATA\nvim-python"
-    if (-not (Test-Path $nvimVenv)) {
+    $nvimPython = "$nvimVenv\Scripts\python.exe"
+
+    if (-not (Test-Path $nvimPython)) {
         Write-Info "creating neovim python venv..."
-        $null = & "$LOCAL_BIN\uv.exe" venv $nvimVenv --python 3.12 2>&1
+        $oldErrorPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        & "$LOCAL_BIN\uv.exe" venv $nvimVenv --python 3.12 2>&1 | Out-Null
+        $ErrorActionPreference = $oldErrorPref
+
+        if (Test-Path $nvimPython) {
+            Write-Ok "neovim venv created"
+        } else {
+            Write-Warn "failed to create neovim venv"
+        }
+    } else {
+        Write-Ok "neovim venv already exists"
     }
 
-    # check if pynvim already installed
-    $pynvimPath = Get-ChildItem "$nvimVenv\Lib\site-packages\pynvim*" -ErrorAction SilentlyContinue
-    if ($pynvimPath) {
-        Write-Ok "pynvim already installed"
-    } else {
-        Write-Info "installing pynvim..."
-        $null = & "$LOCAL_BIN\uv.exe" pip install pynvim --python "$nvimVenv\Scripts\python.exe" 2>&1
-        Write-Ok "pynvim installed"
+    # install pynvim if venv exists
+    if (Test-Path $nvimPython) {
+        $pynvimPath = Get-ChildItem "$nvimVenv\Lib\site-packages\pynvim*" -ErrorAction SilentlyContinue
+        if ($pynvimPath) {
+            Write-Ok "pynvim already installed"
+        } else {
+            Write-Info "installing pynvim..."
+            $oldErrorPref = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            & "$LOCAL_BIN\uv.exe" pip install pynvim --python $nvimPython 2>&1 | Out-Null
+            $ErrorActionPreference = $oldErrorPref
+            Write-Ok "pynvim installed"
+        }
     }
 
     # install uv tools
@@ -570,7 +588,10 @@ function Install-Python {
             Write-Ok "$tool already installed"
         } else {
             Write-Info "installing $tool..."
-            $null = & "$LOCAL_BIN\uv.exe" tool install $tool 2>&1
+            $oldErrorPref = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            & "$LOCAL_BIN\uv.exe" tool install $tool 2>&1 | Out-Null
+            $ErrorActionPreference = $oldErrorPref
             Write-Ok "$tool installed"
         }
     }
