@@ -732,6 +732,7 @@ function Install-Configs {
         "$env:USERPROFILE\.vimrc" = "$configSource\vimrc"
         "$env:USERPROFILE\.config\lazygit" = "$configSource\lazygit"
         "$env:USERPROFILE\.config\starship.toml" = "$configSource\starship.toml"
+        "$env:USERPROFILE\.config\fastfetch" = "$configSource\fastfetch"
     }
 
     foreach ($link in $links.GetEnumerator()) {
