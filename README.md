@@ -60,6 +60,17 @@ creates profile with:
 - starship prompt
 - zoxide (smart cd)
 
+
+### Set powershell as default SSH prompt
+New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Program Files\PowerShell\7\pwsh.exe" -PropertyType String -Force
+
+DefaultShell : C:\Program Files\PowerShell\7\pwsh.exe
+PSPath       : Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SOFTWARE\OpenSSH
+PSParentPath : Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SOFTWARE
+PSChildName  : OpenSSH
+PSDrive      : HKLM
+PSProvider   : Microsoft.PowerShell.Core\Registry
+
 ## structure
 
 ```
