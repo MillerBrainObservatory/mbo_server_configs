@@ -374,10 +374,6 @@ function Set-VSCodeConfig {
         $settings["python.venvFolders"] = @($venvFolders)
     }
 
-    # set font
-    $settings["editor.fontFamily"] = "'JetBrainsMono Nerd Font', Consolas, 'Courier New', monospace"
-    $settings["terminal.integrated.fontFamily"] = "JetBrainsMono Nerd Font"
-
     # save
     $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
     Write-Ok "vscode configured (pwsh terminal, python envs: ~/mbo/envs)"
@@ -804,6 +800,11 @@ Set-Alias -Name vim -Value nvim -ErrorAction SilentlyContinue
 Set-Alias -Name vi -Value nvim -ErrorAction SilentlyContinue
 Set-Alias -Name g -Value git -ErrorAction SilentlyContinue
 
+# PSReadLine history search (type partial command, then up/down to search)
+Set-PSReadLineOption -HistorySearchCursorMovesToEnd
+Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward
+Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
+
 '@
 
     # ls replacements
@@ -852,6 +853,10 @@ if (Get-Command zoxide -ErrorAction SilentlyContinue) {
 function .. { Set-Location .. }
 function ... { Set-Location ..\.. }
 
+# directory shortcuts (type name directly to jump)
+function mbospace { Set-Location Y:\ }
+function s1data { Set-Location X:\ }
+
 # git shortcuts
 function gs { git status @args }
 function ga { git add @args }
@@ -891,6 +896,96 @@ if (Get-Command fastfetch -ErrorAction SilentlyContinue) {
 }
 
 # ============================================================================
+# GIT BASH PROFILE
+# ============================================================================
+
+function Install-GitBashProfile {
+    Write-Info "setting up git bash profile..."
+
+    $bashrcPath = "$env:USERPROFILE\.bashrc"
+
+    # check if already configured
+    if (Test-Path $bashrcPath) {
+        $existing = Get-Content $bashrcPath -Raw -ErrorAction SilentlyContinue
+        if ($existing -match "MBO Bash Profile") {
+            Write-Ok "git bash profile already configured"
+            return
+        }
+    }
+
+    $content = @'
+# MBO Bash Profile
+
+# path
+export PATH="$HOME/.local/bin:$PATH"
+
+# aliases
+alias lg='lazygit'
+alias vim='nvim'
+alias vi='nvim'
+alias g='git'
+
+# ls -> eza (size, icon, name by default)
+if command -v eza &> /dev/null; then
+    alias ls='eza -l --icons --group-directories-first --no-permissions --no-time --no-user'
+    alias lsv='eza -l --icons --group-directories-first'
+    alias la='eza -la --icons --group-directories-first --no-permissions --no-time --no-user'
+    alias lt='eza -T --icons --group-directories-first'
+fi
+
+# cat -> bat
+if command -v bat &> /dev/null; then
+    alias cat='bat --paging=never'
+fi
+
+# navigation
+alias ..='cd ..'
+alias ...='cd ../..'
+
+# git shortcuts
+alias gs='git status'
+alias ga='git add'
+alias gc='git commit'
+alias gp='git push'
+alias gl='git pull'
+alias gd='git diff'
+alias gco='git checkout'
+alias glog='git log --oneline --graph --decorate -20'
+
+# starship prompt
+if command -v starship &> /dev/null; then
+    eval "$(starship init bash)"
+fi
+
+# zoxide (smart cd) - must be after starship
+if command -v zoxide &> /dev/null; then
+    eval "$(zoxide init bash --cmd cd)"
+fi
+
+# fastfetch + tips on startup
+if command -v fastfetch &> /dev/null && [[ $- == *i* ]]; then
+    fastfetch
+    echo ""
+    echo -e "  \033[36mquick reference\033[0m"
+    echo -e "  \033[90m  ls           size + icon + name       lsv         detailed list\033[0m"
+    echo -e "  \033[90m  lt           tree view                la          list all (hidden)\033[0m"
+    echo -e "  \033[90m  cd <name>    smart jump (zoxide)      cd -        go back\033[0m"
+    echo -e "  \033[90m  fd <pat>     find files               rg <pat>    search contents\033[0m"
+    echo -e "  \033[90m  cat <file>   view with syntax         nvim        editor\033[0m"
+    echo -e "  \033[90m  lg           lazygit                  uv run      run python script\033[0m"
+    echo ""
+fi
+'@
+
+    if (Test-Path $bashrcPath) {
+        Add-Content -Path $bashrcPath -Value "`n`n$content"
+    } else {
+        Set-Content -Path $bashrcPath -Value $content
+    }
+    Write-Ok "git bash profile created"
+}
+
+# ============================================================================
 # SUMMARY
 # ============================================================================
 
@@ -903,8 +998,8 @@ function Show-Summary {
     Write-Host "    Neovim" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Terminal:" -ForegroundColor White
-    Write-Host "    pwsh (default), legacy PS hidden" -ForegroundColor Gray
-    Write-Host "    JetBrainsMono Nerd Font" -ForegroundColor Gray
+    Write-Host "    pwsh (default), git bash, legacy PS hidden" -ForegroundColor Gray
+    Write-Host "    JetBrainsMono Nerd Font, matching shell configs" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  Tools ($LOCAL_BIN):" -ForegroundColor White
     Write-Host "    git, lazygit, fd, rg, fzf, bat, delta, eza, zoxide, starship, fastfetch" -ForegroundColor Gray
@@ -937,6 +1032,7 @@ function Main {
     Install-Configs
     Set-WindowsTerminalConfig
     Install-PowerShellProfile
+    Install-GitBashProfile
 
     Show-Summary
 }
