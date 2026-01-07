@@ -1,26 +1,32 @@
 # MBO Server Configs - Windows Admin Setup
 # Target: Windows Server 2022, Windows 11
 #
-# Downloads and installs:
-#   - PowerShell Core: latest MSI from GitHub (PowerShell/PowerShell)
-#   - CLI tools: latest releases from GitHub (lazygit, fd, ripgrep, fzf, bat, delta, eza, zoxide, starship, fastfetch)
-#   - IDEs: VS Code, Neovim (GitHub)
-#   - Python: uv package manager (GitHub), Python 3.12, ruff, ty
-#   - Fonts: JetBrainsMono Nerd Font, FiraCode (GitHub)
+# Usage:
+#   .\install.ps1           Interactive mode (prompts for each group)
+#   .\install.ps1 -y        Auto-accept all installations
+#   .\install.ps1 -Y        Auto-accept installations AND configurations
 #
-# Interactive Configuration (prompts user before applying):
-#   - Git editor: Notepad, Notepad++, VS Code, PyCharm, Neovim (only shows installed editors)
-#   - PSReadLine: history search (Up/Down arrow), predictive IntelliSense
-#   - Shell aliases: ls->eza, cat->bat, cd->zoxide
-#   - VS Code: pwsh default terminal, ~/mbo/envs python path
-#   - Windows Terminal: JetBrainsMono font, pwsh default, hide legacy PS
+# Installation Groups:
+#   - Shell: PowerShell Core, fonts
+#   - CLI Tools: git, lazygit, fd, ripgrep, fzf, bat, delta, eza, zoxide, starship, fastfetch
+#   - Editors: Neovim, VS Code
+#   - Python: uv, Python 3.12, ruff, ty, pynvim
 #
-# Run as Administrator:
-#   .\install.ps1
+# Configuration Options:
+#   - Git editor, PSReadLine, shell aliases, VS Code, Windows Terminal
+
+param(
+    [switch]$y,  # Auto-accept installations
+    [switch]$Y   # Auto-accept installations AND configurations
+)
 
 #Requires -RunAsAdministrator
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+# Global flags
+$script:AutoInstall = $y -or $Y
+$script:AutoConfig = $Y
 
 # explicit admin check
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -86,6 +92,40 @@ function Ensure-Directories {
         }
     }
     Add-ToPath $LOCAL_BIN
+}
+
+function Confirm-InstallGroup {
+    param(
+        [string]$Name,
+        [string]$Description,
+        [string[]]$Items
+    )
+
+    if ($script:AutoInstall) { return $true }
+
+    Write-Host ""
+    Write-Host "  $Name" -ForegroundColor Cyan
+    Write-Host "  $Description" -ForegroundColor Gray
+    Write-Host "    $($Items -join ', ')" -ForegroundColor White
+    Write-Host ""
+    $response = Read-Host "  Install? [Y/n]"
+    return ($response -eq "" -or $response -match "^[Yy]")
+}
+
+function Get-InstallationChoices {
+    Write-Host ""
+    Write-Host "  Installation Groups" -ForegroundColor Cyan
+    Write-Host ""
+
+    $choices = @{
+        Shell = Confirm-InstallGroup -Name "Shell" -Description "Terminal environment" -Items @("PowerShell 7", "JetBrainsMono Nerd Font", "FiraCode")
+        CliTools = Confirm-InstallGroup -Name "CLI Tools" -Description "Command line utilities" -Items @("git", "lazygit", "fd", "ripgrep", "fzf", "bat", "delta", "eza", "zoxide", "starship", "fastfetch")
+        Editors = Confirm-InstallGroup -Name "Editors" -Description "Code editors" -Items @("Neovim", "VS Code")
+        Python = Confirm-InstallGroup -Name "Python" -Description "Python environment via uv (no system Python)" -Items @("uv", "Python 3.12", "ruff", "ty", "pynvim")
+        Configs = Confirm-InstallGroup -Name "Configs" -Description "Symlink configuration files" -Items @("nvim", "lazygit", "starship", "fastfetch")
+    }
+
+    return $choices
 }
 
 # POWERSHELL CORE
@@ -803,10 +843,6 @@ function Get-InstalledEditors {
 }
 
 function Get-ConfigurationPreferences {
-    Write-Host ""
-    Write-Host "  Configuration Options" -ForegroundColor Cyan
-    Write-Host ""
-
     $prefs = @{
         GitEditor = $null
         ConfigureVSCode = $true
@@ -817,6 +853,16 @@ function Get-ConfigurationPreferences {
         ReplaceCat = $true
         ReplaceCd = $true
     }
+
+    # Auto-accept all config with defaults
+    if ($script:AutoConfig) {
+        Write-Info "auto-accepting configuration defaults (-Y)"
+        return $prefs
+    }
+
+    Write-Host ""
+    Write-Host "  Configuration Options" -ForegroundColor Cyan
+    Write-Host ""
 
     # Git Editor Selection
     Write-Host "  Git Editor" -ForegroundColor Yellow
@@ -1223,17 +1269,34 @@ function Main {
     Show-Banner
     Ensure-Directories
 
-    # Install software first (no user interaction)
-    Install-PowerShellCore
-    Install-Fonts
-    Install-Git
-    Install-Neovim
-    Install-VSCode
-    Install-CliTools
-    Install-Python
-    Install-Configs
+    # Get installation choices (prompts unless -y or -Y)
+    $install = Get-InstallationChoices
 
-    # Get user configuration preferences (after tools are installed so we can detect editors)
+    # Install based on choices
+    if ($install.Shell) {
+        Install-PowerShellCore
+        Install-Fonts
+    }
+
+    if ($install.CliTools) {
+        Install-Git
+        Install-CliTools
+    }
+
+    if ($install.Editors) {
+        Install-Neovim
+        Install-VSCode
+    }
+
+    if ($install.Python) {
+        Install-Python
+    }
+
+    if ($install.Configs) {
+        Install-Configs
+    }
+
+    # Get user configuration preferences (prompts unless -Y)
     $preferences = Get-ConfigurationPreferences
 
     # Apply git editor preference
