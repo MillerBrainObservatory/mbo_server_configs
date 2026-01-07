@@ -4,9 +4,16 @@
 # Downloads and installs:
 #   - PowerShell Core: latest MSI from GitHub (PowerShell/PowerShell)
 #   - CLI tools: latest releases from GitHub (lazygit, fd, ripgrep, fzf, bat, delta, eza, zoxide, starship, fastfetch)
-#   - IDEs: VS Code (pwsh terminal, ~/mbo/envs python path), Neovim (GitHub)
+#   - IDEs: VS Code, Neovim (GitHub)
 #   - Python: uv package manager (GitHub), Python 3.12, ruff, ty
 #   - Fonts: JetBrainsMono Nerd Font, FiraCode (GitHub)
+#
+# Interactive Configuration (prompts user before applying):
+#   - Git editor: Notepad, Notepad++, VS Code, PyCharm, Neovim (only shows installed editors)
+#   - PSReadLine: history search (Up/Down arrow), predictive IntelliSense
+#   - Shell aliases: ls->eza, cat->bat, cd->zoxide
+#   - VS Code: pwsh default terminal, ~/mbo/envs python path
+#   - Windows Terminal: JetBrainsMono font, pwsh default, hide legacy PS
 #
 # Run as Administrator:
 #   .\install.ps1
@@ -81,9 +88,7 @@ function Ensure-Directories {
     Add-ToPath $LOCAL_BIN
 }
 
-# ============================================================================
 # POWERSHELL CORE
-# ============================================================================
 
 function Install-PowerShellCore {
     Write-Info "checking powershell core..."
@@ -136,9 +141,7 @@ function Install-PowerShellCore {
     }
 }
 
-# ============================================================================
 # FONTS
-# ============================================================================
 
 function Test-FontInstalled {
     param([string]$FontName)
@@ -236,9 +239,7 @@ function Install-Fonts {
     }
 }
 
-# ============================================================================
 # GIT
-# ============================================================================
 
 function Install-Git {
     if (Test-CommandExists "git") {
@@ -263,9 +264,7 @@ function Install-Git {
     Write-Ok "git installed"
 }
 
-# ============================================================================
 # NEOVIM
-# ============================================================================
 
 function Install-Neovim {
     if (Test-CommandExists "nvim") {
@@ -291,9 +290,7 @@ function Install-Neovim {
     Write-Ok "neovim installed"
 }
 
-# ============================================================================
 # VSCODE
-# ============================================================================
 
 function Install-VSCode {
     if (Test-CommandExists "code") {
@@ -379,9 +376,7 @@ function Set-VSCodeConfig {
     Write-Ok "vscode configured (pwsh terminal, python envs: ~/mbo/envs)"
 }
 
-# ============================================================================
 # CLI TOOLS (from GitHub releases)
-# ============================================================================
 
 function Install-CliTool {
     param(
@@ -496,9 +491,7 @@ function Install-CliTools {
     Install-CliTool -Name "fastfetch" -Repo "fastfetch-cli/fastfetch" -AssetPattern "windows-amd64\.zip$"
 }
 
-# ============================================================================
 # UV + PYTHON
-# ============================================================================
 
 function Install-Python {
     Write-Info "setting up python via uv..."
@@ -593,9 +586,7 @@ function Install-Python {
     }
 }
 
-# ============================================================================
 # WINDOWS TERMINAL CONFIG
-# ============================================================================
 
 function Set-WindowsTerminalConfig {
     Write-Info "configuring windows terminal..."
@@ -688,9 +679,7 @@ function Set-WindowsTerminalConfig {
     Write-Ok "windows terminal configured"
 }
 
-# ============================================================================
 # CONFIGS
-# ============================================================================
 
 function Install-Configs {
     Write-Info "setting up configurations..."
@@ -752,42 +741,209 @@ function Install-Configs {
     }
 }
 
-# ============================================================================
 # POWERSHELL PROFILE
-# ============================================================================
 
-function Get-ShellPreferences {
+# INTERACTIVE CONFIGURATION
+
+function Get-InstalledEditors {
+    $editors = @()
+
+    # Notepad (always available on Windows)
+    $editors += @{ Name = "Notepad"; Command = "notepad"; Path = "$env:SystemRoot\notepad.exe" }
+
+    # Notepad++
+    $nppPaths = @(
+        "$env:ProgramFiles\Notepad++\notepad++.exe",
+        "${env:ProgramFiles(x86)}\Notepad++\notepad++.exe"
+    )
+    foreach ($path in $nppPaths) {
+        if (Test-Path $path) {
+            $editors += @{ Name = "Notepad++"; Command = "`"$path`" -multiInst -notabbar -nosession -noPlugin"; Path = $path }
+            break
+        }
+    }
+
+    # VS Code
+    $vscodePaths = @(
+        "$env:ProgramFiles\Microsoft VS Code\bin\code.cmd",
+        "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd"
+    )
+    foreach ($path in $vscodePaths) {
+        if (Test-Path $path) {
+            $editors += @{ Name = "VS Code"; Command = "code --wait"; Path = $path }
+            break
+        }
+    }
+    if (-not ($editors | Where-Object { $_.Name -eq "VS Code" }) -and (Test-CommandExists "code")) {
+        $editors += @{ Name = "VS Code"; Command = "code --wait"; Path = "code" }
+    }
+
+    # PyCharm
+    $pycharmPaths = @(
+        "$env:ProgramFiles\JetBrains\PyCharm*\bin\pycharm64.exe",
+        "$env:LOCALAPPDATA\Programs\PyCharm*\bin\pycharm64.exe",
+        "$env:LOCALAPPDATA\JetBrains\Toolbox\apps\PyCharm*\ch-0\*\bin\pycharm64.exe"
+    )
+    foreach ($pattern in $pycharmPaths) {
+        $found = Get-ChildItem -Path $pattern -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) {
+            $editors += @{ Name = "PyCharm"; Command = "`"$($found.FullName)`" --wait"; Path = $found.FullName }
+            break
+        }
+    }
+
+    # Neovim
+    if (Test-CommandExists "nvim") {
+        $editors += @{ Name = "Neovim"; Command = "nvim"; Path = "nvim" }
+    } elseif (Test-Path "$TOOLS_DIR\nvim-win64\bin\nvim.exe") {
+        $editors += @{ Name = "Neovim"; Command = "$TOOLS_DIR\nvim-win64\bin\nvim.exe"; Path = "$TOOLS_DIR\nvim-win64\bin\nvim.exe" }
+    }
+
+    return $editors
+}
+
+function Get-ConfigurationPreferences {
     Write-Host ""
-    Write-Host "  Shell Enhancement Options" -ForegroundColor Cyan
-    Write-Host "  Replace built-in commands with modern alternatives?" -ForegroundColor White
+    Write-Host "  Configuration Options" -ForegroundColor Cyan
     Write-Host ""
 
     $prefs = @{
+        GitEditor = $null
+        ConfigureVSCode = $true
+        ConfigureWindowsTerminal = $true
+        PSReadLineHistory = $true
+        PSReadLinePrediction = $true
         ReplaceLs = $true
         ReplaceCat = $true
         ReplaceCd = $true
     }
 
+    # Git Editor Selection
+    Write-Host "  Git Editor" -ForegroundColor Yellow
+    Write-Host "  Choose which editor Git will use for commit messages, rebase, etc." -ForegroundColor Gray
+    Write-Host ""
+
+    $editors = Get-InstalledEditors
+    $currentEditor = git config --global core.editor 2>$null
+
+    if ($currentEditor) {
+        Write-Host "  Current: $currentEditor" -ForegroundColor DarkGray
+    }
+
+    for ($i = 0; $i -lt $editors.Count; $i++) {
+        Write-Host "    [$($i + 1)] $($editors[$i].Name)" -ForegroundColor White
+    }
+    Write-Host "    [S] Skip (keep current)" -ForegroundColor DarkGray
+    Write-Host ""
+
+    $response = Read-Host "  Select editor [1-$($editors.Count)/S]"
+    if ($response -match "^\d+$") {
+        $idx = [int]$response - 1
+        if ($idx -ge 0 -and $idx -lt $editors.Count) {
+            $prefs.GitEditor = $editors[$idx]
+            Write-Host "  -> $($editors[$idx].Name)" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "  -> Skipped" -ForegroundColor DarkGray
+    }
+    Write-Host ""
+
+    # PSReadLine History Search
+    Write-Host "  PSReadLine History Search" -ForegroundColor Yellow
+    Write-Host "  Enable Up/Down arrow to search command history based on current input." -ForegroundColor Gray
+    Write-Host "  Example: Type 'git' then press Up to find previous git commands." -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "    [Y] Enable history search (recommended)" -ForegroundColor White
+    Write-Host "    [N] Keep default (cycle through all history)" -ForegroundColor White
+    Write-Host ""
+
+    $response = Read-Host "  Enable history search? [Y/n]"
+    $prefs.PSReadLineHistory = ($response -eq "" -or $response -match "^[Yy]")
+    Write-Host "  -> $(if ($prefs.PSReadLineHistory) { 'Enabled' } else { 'Disabled' })" -ForegroundColor $(if ($prefs.PSReadLineHistory) { 'Green' } else { 'DarkGray' })
+    Write-Host ""
+
+    # PSReadLine Predictive IntelliSense
+    Write-Host "  PSReadLine Predictive IntelliSense" -ForegroundColor Yellow
+    Write-Host "  Show inline suggestions based on your command history as you type." -ForegroundColor Gray
+    Write-Host "  Press Right arrow to accept a suggestion." -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "    [Y] Enable predictions" -ForegroundColor White
+    Write-Host "    [N] Disable predictions" -ForegroundColor White
+    Write-Host ""
+
+    $response = Read-Host "  Enable predictions? [Y/n]"
+    $prefs.PSReadLinePrediction = ($response -eq "" -or $response -match "^[Yy]")
+    Write-Host "  -> $(if ($prefs.PSReadLinePrediction) { 'Enabled' } else { 'Disabled' })" -ForegroundColor $(if ($prefs.PSReadLinePrediction) { 'Green' } else { 'DarkGray' })
+    Write-Host ""
+
+    # Shell Command Replacements
+    Write-Host "  Shell Command Replacements" -ForegroundColor Yellow
+    Write-Host "  Replace built-in commands with modern alternatives?" -ForegroundColor Gray
+    Write-Host ""
+
     # ls -> eza
-    Write-Host "  [1] ls -> eza (icons, colors, better formatting)" -ForegroundColor Gray
+    Write-Host "    ls -> eza (icons, colors, better formatting)" -ForegroundColor White
     $response = Read-Host "      Replace ls? [Y/n] (recommended)"
     $prefs.ReplaceLs = ($response -eq "" -or $response -match "^[Yy]")
+    Write-Host "      -> $(if ($prefs.ReplaceLs) { 'Yes' } else { 'No' })" -ForegroundColor $(if ($prefs.ReplaceLs) { 'Green' } else { 'DarkGray' })
 
     # cat -> bat
-    Write-Host "  [2] cat -> bat (syntax highlighting)" -ForegroundColor Gray
+    Write-Host "    cat -> bat (syntax highlighting)" -ForegroundColor White
     $response = Read-Host "      Replace cat? [Y/n] (recommended)"
     $prefs.ReplaceCat = ($response -eq "" -or $response -match "^[Yy]")
+    Write-Host "      -> $(if ($prefs.ReplaceCat) { 'Yes' } else { 'No' })" -ForegroundColor $(if ($prefs.ReplaceCat) { 'Green' } else { 'DarkGray' })
 
     # cd -> z (zoxide)
-    Write-Host "  [3] cd -> z (zoxide smart jump)" -ForegroundColor Gray
+    Write-Host "    cd -> zoxide (smart directory jump)" -ForegroundColor White
     $response = Read-Host "      Replace cd? [Y/n] (recommended)"
     $prefs.ReplaceCd = ($response -eq "" -or $response -match "^[Yy]")
+    Write-Host "      -> $(if ($prefs.ReplaceCd) { 'Yes' } else { 'No' })" -ForegroundColor $(if ($prefs.ReplaceCd) { 'Green' } else { 'DarkGray' })
+    Write-Host ""
+
+    # VS Code Configuration
+    Write-Host "  VS Code Configuration" -ForegroundColor Yellow
+    Write-Host "  Configure VS Code to use PowerShell as default terminal" -ForegroundColor Gray
+    Write-Host "  and add ~/mbo/envs to Python virtual environment folders." -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "    [Y] Configure VS Code (recommended)" -ForegroundColor White
+    Write-Host "    [N] Skip VS Code configuration" -ForegroundColor White
+    Write-Host ""
+
+    $response = Read-Host "  Configure VS Code? [Y/n]"
+    $prefs.ConfigureVSCode = ($response -eq "" -or $response -match "^[Yy]")
+    Write-Host "  -> $(if ($prefs.ConfigureVSCode) { 'Yes' } else { 'Skipped' })" -ForegroundColor $(if ($prefs.ConfigureVSCode) { 'Green' } else { 'DarkGray' })
+    Write-Host ""
+
+    # Windows Terminal Configuration
+    Write-Host "  Windows Terminal Configuration" -ForegroundColor Yellow
+    Write-Host "  Set JetBrainsMono Nerd Font, PowerShell as default profile," -ForegroundColor Gray
+    Write-Host "  and hide legacy Windows PowerShell." -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "    [Y] Configure Windows Terminal (recommended)" -ForegroundColor White
+    Write-Host "    [N] Skip Windows Terminal configuration" -ForegroundColor White
+    Write-Host ""
+
+    $response = Read-Host "  Configure Windows Terminal? [Y/n]"
+    $prefs.ConfigureWindowsTerminal = ($response -eq "" -or $response -match "^[Yy]")
+    Write-Host "  -> $(if ($prefs.ConfigureWindowsTerminal) { 'Yes' } else { 'Skipped' })" -ForegroundColor $(if ($prefs.ConfigureWindowsTerminal) { 'Green' } else { 'DarkGray' })
 
     Write-Host ""
     return $prefs
 }
 
+function Set-GitEditor {
+    param([hashtable]$Editor)
+
+    if (-not $Editor) { return }
+
+    Write-Info "setting git editor to $($Editor.Name)..."
+    git config --global core.editor $Editor.Command
+    Write-Ok "git editor set to $($Editor.Name)"
+}
+
 function Install-PowerShellProfile {
+    param([hashtable]$Preferences)
+
     Write-Info "setting up powershell profile..."
 
     $profileDir = "$env:USERPROFILE\Documents\PowerShell"
@@ -806,8 +962,16 @@ function Install-PowerShellProfile {
         }
     }
 
-    # get user preferences
-    $prefs = Get-ShellPreferences
+    # use passed preferences or defaults
+    $prefs = if ($Preferences) { $Preferences } else {
+        @{
+            PSReadLineHistory = $true
+            PSReadLinePrediction = $true
+            ReplaceLs = $true
+            ReplaceCat = $true
+            ReplaceCd = $true
+        }
+    }
 
     # build profile content
     $content = @'
@@ -822,12 +986,28 @@ Set-Alias -Name vim -Value nvim -ErrorAction SilentlyContinue
 Set-Alias -Name vi -Value nvim -ErrorAction SilentlyContinue
 Set-Alias -Name g -Value git -ErrorAction SilentlyContinue
 
+'@
+
+    # PSReadLine history search
+    if ($prefs.PSReadLineHistory) {
+        $content += @'
 # PSReadLine history search (type partial command, then up/down to search)
 Set-PSReadLineOption -HistorySearchCursorMovesToEnd
 Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward
 Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
 
 '@
+    }
+
+    # PSReadLine predictive intellisense
+    if ($prefs.PSReadLinePrediction) {
+        $content += @'
+# PSReadLine predictive IntelliSense (press Right arrow to accept)
+Set-PSReadLineOption -PredictionSource History
+Set-PSReadLineOption -PredictionViewStyle InlineView
+
+'@
+    }
 
     # ls replacements
     if ($prefs.ReplaceLs) {
@@ -917,9 +1097,7 @@ if (Get-Command fastfetch -ErrorAction SilentlyContinue) {
     Write-Ok "profile created"
 }
 
-# ============================================================================
 # GIT BASH PROFILE
-# ============================================================================
 
 function Install-GitBashProfile {
     Write-Info "setting up git bash profile..."
@@ -1007,53 +1185,74 @@ fi
     Write-Ok "git bash profile created"
 }
 
-# ============================================================================
 # SUMMARY
-# ============================================================================
 
 function Show-Summary {
     Write-Host ""
-    Write-Host "Setup Complete" -ForegroundColor Green
+    Write-Host "  Setup Complete!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "  IDEs:" -ForegroundColor White
-    Write-Host "    VS Code (pwsh terminal, ~/mbo/envs for python)" -ForegroundColor Gray
-    Write-Host "    Neovim" -ForegroundColor Gray
+    Write-Host "  Close and reopen your terminal to apply changes." -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "  Terminal:" -ForegroundColor White
-    Write-Host "    pwsh (default), git bash, legacy PS hidden" -ForegroundColor Gray
-    Write-Host "    JetBrainsMono Nerd Font, matching shell configs" -ForegroundColor Gray
+    Write-Host "  Commands" -ForegroundColor Cyan
+    Write-Host "    ls, la, lt      list files (eza with icons)" -ForegroundColor Gray
+    Write-Host "    cat <file>      view file with syntax highlighting (bat)" -ForegroundColor Gray
+    Write-Host "    cd <dir>        smart jump, learns your habits (zoxide)" -ForegroundColor Gray
+    Write-Host "    fd <pattern>    fast file search" -ForegroundColor Gray
+    Write-Host "    rg <pattern>    fast text search in files (ripgrep)" -ForegroundColor Gray
+    Write-Host "    fzf             fuzzy finder, pipe anything into it" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  Tools ($LOCAL_BIN):" -ForegroundColor White
-    Write-Host "    git, lazygit, fd, rg, fzf, bat, delta, eza, zoxide, starship, fastfetch" -ForegroundColor Gray
+    Write-Host "  Tools" -ForegroundColor Cyan
+    Write-Host "    fastfetch       system info displayed on terminal startup" -ForegroundColor Gray
+    Write-Host "    starship        customizable prompt showing git status, python env, etc." -ForegroundColor Gray
+    Write-Host "                    config: ~/.config/starship.toml" -ForegroundColor DarkGray
+    Write-Host "    lazygit         terminal UI for git - stage, commit, push, branch, merge" -ForegroundColor Gray
+    Write-Host "                    run 'lg' to open, ? for help, q to quit" -ForegroundColor DarkGray
+    Write-Host "    nvim            neovim text editor, plugins auto-install on first run" -ForegroundColor Gray
     Write-Host ""
-    Write-Host "  Python:" -ForegroundColor White
-    Write-Host "    uv, python 3.12, ruff, ty" -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "  NEXT:" -ForegroundColor Yellow
-    Write-Host "    1. Close and reopen terminal" -ForegroundColor White
-    Write-Host "    2. Run 'nvim' (plugins auto-install)" -ForegroundColor White
+    Write-Host "  Python (uv)" -ForegroundColor Cyan
+    Write-Host "    uv run <script.py>      run python script (auto-creates venv)" -ForegroundColor Gray
+    Write-Host "    uv pip install <pkg>    install package to current venv" -ForegroundColor Gray
+    Write-Host "    uv venv                 create virtual environment" -ForegroundColor Gray
+    Write-Host "    uv sync                 install dependencies from pyproject.toml" -ForegroundColor Gray
     Write-Host ""
 }
 
-# ============================================================================
 # MAIN
-# ============================================================================
 
 function Main {
     Show-Banner
     Ensure-Directories
 
+    # Install software first (no user interaction)
     Install-PowerShellCore
     Install-Fonts
     Install-Git
     Install-Neovim
     Install-VSCode
-    Set-VSCodeConfig
     Install-CliTools
     Install-Python
     Install-Configs
-    Set-WindowsTerminalConfig
-    Install-PowerShellProfile
+
+    # Get user configuration preferences (after tools are installed so we can detect editors)
+    $preferences = Get-ConfigurationPreferences
+
+    # Apply git editor preference
+    if ($preferences.GitEditor) {
+        Set-GitEditor -Editor $preferences.GitEditor
+    }
+
+    # Apply VS Code configuration if requested
+    if ($preferences.ConfigureVSCode) {
+        Set-VSCodeConfig
+    }
+
+    # Apply Windows Terminal configuration if requested
+    if ($preferences.ConfigureWindowsTerminal) {
+        Set-WindowsTerminalConfig
+    }
+
+    # Install shell profiles with preferences
+    Install-PowerShellProfile -Preferences $preferences
     Install-GitBashProfile
 
     Show-Summary
