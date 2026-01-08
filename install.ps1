@@ -4,7 +4,7 @@
 # Usage:
 #   .\install.ps1           Interactive mode (prompts for each group)
 #   .\install.ps1 -y        Auto-accept all installations
-#   .\install.ps1 -Y        Auto-accept installations AND configurations
+#   .\install.ps1 -All      Auto-accept installations AND configurations
 #
 # Installation Groups:
 #   - Shell: PowerShell Core, fonts
@@ -16,8 +16,9 @@
 #   - Git editor, PSReadLine, shell aliases, VS Code, Windows Terminal
 
 param(
-    [switch]$y,  # Auto-accept installations
-    [switch]$Y   # Auto-accept installations AND configurations
+    [Alias('y')]
+    [switch]$Yes,           # Auto-accept installations (-y)
+    [switch]$All            # Auto-accept installations AND configurations (-All)
 )
 
 #Requires -RunAsAdministrator
@@ -25,8 +26,8 @@ $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 # Global flags
-$script:AutoInstall = $y -or $Y
-$script:AutoConfig = $Y
+$script:AutoInstall = $Yes -or $All
+$script:AutoConfig = $All
 
 # explicit admin check
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -856,7 +857,7 @@ function Get-ConfigurationPreferences {
 
     # Auto-accept all config with defaults
     if ($script:AutoConfig) {
-        Write-Info "auto-accepting configuration defaults (-Y)"
+        Write-Info "auto-accepting configuration defaults (-All)"
         return $prefs
     }
 

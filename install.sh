@@ -419,80 +419,199 @@ setup_neovim_python() {
     ok "neovim python provider ready"
 }
 
-show_menu() {
-    echo ""
-    echo "Optional Tools (installed to ~/.local/bin)"
-    echo ""
-    echo "  [1] neovim     - hyperextensible vim-based text editor"
-    echo "  [2] fzf        - command-line fuzzy finder"
-    echo "  [3] ripgrep    - fast regex search tool (rg)"
-    echo "  [4] fd         - fast find alternative"
-    echo "  [5] lazygit    - terminal UI for git"
-    echo "  [6] starship   - cross-shell prompt"
-    echo "  [7] zoxide     - smarter cd command"
-    echo "  [8] bat        - cat with syntax highlighting"
-    echo "  [9] delta      - git diff viewer"
-    echo "  [10] eza       - modern ls replacement"
-    echo ""
-    echo "  [A] All        - install everything"
-    echo "  [E] Essentials - neovim, fzf, ripgrep, fd, lazygit"
-    echo "  [N] None       - configs only, no tools"
-    echo ""
+# tool definitions: name, command, description
+TOOLS=(
+    "neovim:nvim:hyperextensible vim-based text editor"
+    "fzf:fzf:command-line fuzzy finder"
+    "ripgrep:rg:fast regex search tool (rg)"
+    "fd:fd:fast find alternative"
+    "lazygit:lazygit:terminal UI for git"
+    "starship:starship:cross-shell prompt"
+    "zoxide:zoxide:smarter cd command"
+    "bat:bat:cat with syntax highlighting"
+    "delta:delta:git diff viewer"
+    "eza:eza:modern ls replacement"
+)
 
-    read -rp "Select (comma-separated numbers, A/E/N) [E]: " selection
+ESSENTIALS=(1 2 3 4 5)
+
+# check which tools are installed
+check_tool_status() {
+    local tool_def="$1"
+    local cmd
+    cmd=$(echo "$tool_def" | cut -d: -f2)
+
+    # special case for bat (can be batcat on some systems)
+    if [[ "$cmd" == "bat" ]]; then
+        command_exists bat || command_exists batcat
+    else
+        command_exists "$cmd"
+    fi
+}
+
+# get indices of tools to install based on selection
+get_selected_indices() {
+    local selection="$1"
+
+    case "$selection" in
+        N|NONE)
+            echo ""
+            ;;
+        A|ALL)
+            echo "1 2 3 4 5 6 7 8 9 10"
+            ;;
+        E|ESSENTIALS|"")
+            echo "${ESSENTIALS[*]}"
+            ;;
+        *)
+            echo "$selection" | tr ',' ' '
+            ;;
+    esac
+}
+
+show_menu() {
+    {
+        echo ""
+        echo "Optional Tools (installed to ~/.local/bin)"
+        echo ""
+
+        local idx=1
+
+        for tool_def in "${TOOLS[@]}"; do
+            local name desc status_icon
+            name=$(echo "$tool_def" | cut -d: -f1)
+            desc=$(echo "$tool_def" | cut -d: -f3)
+
+            if check_tool_status "$tool_def"; then
+                status_icon="${GREEN}[installed]${NC}"
+            else
+                status_icon="${YELLOW}[not installed]${NC}"
+            fi
+
+            printf "  [%-2s] %-10s - %-40s %b\n" "$idx" "$name" "$desc" "$status_icon"
+            ((idx++))
+        done
+
+        echo ""
+        echo "  [A] All        - install everything"
+        echo "  [E] Essentials - neovim, fzf, ripgrep, fd, lazygit"
+        echo "  [N] None       - configs only, no tools"
+        echo ""
+    } >/dev/tty
+
+    read -rp "Select (comma-separated numbers, A/E/N) [E]: " selection </dev/tty
     selection="${selection:-E}"
     selection=$(echo "$selection" | tr '[:lower:]' '[:upper:]')
 
     echo "$selection"
 }
 
-install_selected_tools() {
+# check selected tools and prompt appropriately
+check_and_prompt_install() {
     local selection="$1"
+    local indices
+    indices=$(get_selected_indices "$selection")
 
-    case "$selection" in
-        N|NONE)
+    [[ -z "$indices" ]] && { echo "SKIP"; return; }
+
+    local installed_names=()
+    local missing_names=()
+    local missing_indices=()
+
+    for idx in $indices; do
+        local tool_def="${TOOLS[$((idx-1))]}"
+        local name
+        name=$(echo "$tool_def" | cut -d: -f1)
+
+        if check_tool_status "$tool_def"; then
+            installed_names+=("$name")
+        else
+            missing_names+=("$name")
+            missing_indices+=("$idx")
+        fi
+    done
+
+    # all installed
+    if [[ ${#missing_names[@]} -eq 0 ]]; then
+        {
+            echo ""
+            echo -e "${GREEN}Installed:${NC} ${installed_names[*]}"
+            echo ""
+        } >/dev/tty
+        read -rp "All selected tools are already installed. Reinstall? [y/N]: " answer </dev/tty
+        answer=$(echo "$answer" | tr '[:upper:]' '[:lower:]')
+        if [[ "$answer" == "y" || "$answer" == "yes" ]]; then
+            echo "REINSTALL:$selection"
+        else
+            echo "SKIP"
+        fi
+        return
+    fi
+
+    # none installed
+    if [[ ${#installed_names[@]} -eq 0 ]]; then
+        echo "INSTALL:$selection"
+        return
+    fi
+
+    # some installed, some missing
+    {
+        echo ""
+        echo -e "${GREEN}Installed:${NC} ${installed_names[*]}"
+        echo -e "${YELLOW}Not installed:${NC} ${missing_names[*]}"
+        echo ""
+    } >/dev/tty
+    read -rp "Install missing tools? [Y/n]: " answer </dev/tty
+    answer=$(echo "$answer" | tr '[:upper:]' '[:lower:]')
+    if [[ "$answer" == "n" || "$answer" == "no" ]]; then
+        echo "SKIP"
+    else
+        echo "INSTALL_MISSING:${missing_indices[*]}"
+    fi
+}
+
+# install tool by index (1-10)
+install_tool_by_index() {
+    local idx="$1"
+
+    case "$idx" in
+        1) install_neovim ;;
+        2) install_fzf ;;
+        3) install_ripgrep ;;
+        4) install_fd ;;
+        5) install_lazygit ;;
+        6) install_starship ;;
+        7) install_zoxide ;;
+        8) install_bat ;;
+        9) install_delta ;;
+        10) install_eza ;;
+    esac
+}
+
+install_selected_tools() {
+    local action="$1"
+
+    case "$action" in
+        SKIP)
             info "skipping tool installation"
             return
             ;;
-        A|ALL)
-            install_neovim
-            install_fzf
-            install_ripgrep
-            install_fd
-            install_lazygit
-            install_starship
-            install_zoxide
-            install_bat
-            install_delta
-            install_eza
-            return
+        INSTALL:*|REINSTALL:*)
+            local selection="${action#*:}"
+            local indices
+            indices=$(get_selected_indices "$selection")
+
+            for idx in $indices; do
+                install_tool_by_index "$idx"
+            done
             ;;
-        E|ESSENTIALS|"")
-            install_neovim
-            install_fzf
-            install_ripgrep
-            install_fd
-            install_lazygit
-            return
+        INSTALL_MISSING:*)
+            local indices="${action#INSTALL_MISSING:}"
+            for idx in $indices; do
+                install_tool_by_index "$idx"
+            done
             ;;
     esac
-
-    IFS=',' read -ra choices <<< "$selection"
-    for choice in "${choices[@]}"; do
-        choice=$(echo "$choice" | tr -d ' ')
-        case "$choice" in
-            1) install_neovim ;;
-            2) install_fzf ;;
-            3) install_ripgrep ;;
-            4) install_fd ;;
-            5) install_lazygit ;;
-            6) install_starship ;;
-            7) install_zoxide ;;
-            8) install_bat ;;
-            9) install_delta ;;
-            10) install_eza ;;
-        esac
-    done
 }
 
 show_summary() {
@@ -541,7 +660,8 @@ main() {
 
     # tool selection
     selection=$(show_menu)
-    install_selected_tools "$selection"
+    action=$(check_and_prompt_install "$selection")
+    install_selected_tools "$action"
 
     # python provider
     setup_neovim_python
