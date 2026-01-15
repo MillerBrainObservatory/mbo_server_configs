@@ -126,7 +126,7 @@ function Get-InstallationChoices {
     $choices = @{
         Shell = Confirm-InstallGroup -Name "Shell" -Description "Terminal environment" -Items @("PowerShell 7", "JetBrainsMono Nerd Font", "FiraCode")
         CliTools = Confirm-InstallGroup -Name "CLI Tools" -Description "Command line utilities" -Items @("git", "lazygit", "fd", "ripgrep", "fzf", "bat", "delta", "eza", "zoxide", "starship", "fastfetch")
-        Editors = Confirm-InstallGroup -Name "Editors" -Description "Code editors + compiler" -Items @("MinGW (gcc)", "Neovim", "VS Code")
+        Editors = Confirm-InstallGroup -Name "Editors" -Description "Code editors + build tools" -Items @("MinGW (gcc)", "Node.js (npm)", "CMake", "Neovim", "VS Code")
         Python = Confirm-InstallGroup -Name "Python" -Description "Python environment via uv (no system Python)" -Items @("uv", "Python 3.12", "ruff", "ty", "pynvim")
         Configs = Confirm-InstallGroup -Name "Configs" -Description "Symlink configuration files" -Items @("nvim", "lazygit", "starship", "fastfetch")
     }
@@ -350,6 +350,115 @@ function Install-MinGW {
     } catch {
         Write-Warn "failed to install mingw: $_"
     }
+}
+
+# NODE.JS (for LSPs like pyright, markdownlint)
+
+function Install-NodeJS {
+    if (Test-CommandExists "node") {
+        Write-Ok "node already installed: $(node --version)"
+        return
+    }
+
+    Write-Info "installing node.js (for LSPs)..."
+
+    $nodeVersion = "20.18.0"
+    $nodeUrl = "https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-win-x64.zip"
+    $zipPath = "$env:TEMP\node.zip"
+    $nodeDir = "$env:LOCALAPPDATA\Programs\nodejs"
+
+    try {
+        Invoke-WebRequest -Uri $nodeUrl -OutFile $zipPath -UseBasicParsing
+
+        Write-Info "extracting node.js..."
+        $extractPath = "$env:TEMP\node-extract"
+        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+
+        if (Test-Path $nodeDir) {
+            Remove-Item $nodeDir -Recurse -Force
+        }
+        Move-Item "$extractPath\node-v$nodeVersion-win-x64" $nodeDir -Force
+
+        Add-ToPath $nodeDir
+
+        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+        Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+
+        Write-Ok "node.js installed"
+    } catch {
+        Write-Warn "failed to install node.js: $_"
+    }
+}
+
+# CMAKE (for some neovim plugins like telescope-fzf-native)
+
+function Install-CMake {
+    if (Test-CommandExists "cmake") {
+        Write-Ok "cmake already installed: $(cmake --version | Select-Object -First 1)"
+        return
+    }
+
+    Write-Info "installing cmake..."
+
+    $release = Get-GitHubLatestRelease "Kitware/CMake"
+    if (-not $release) {
+        Write-Warn "could not get cmake release"
+        return
+    }
+
+    $asset = $release.assets | Where-Object { $_.name -match "windows-x86_64\.zip$" -and $_.name -notmatch "\.msi" } | Select-Object -First 1
+    if (-not $asset) {
+        Write-Warn "could not find cmake asset"
+        return
+    }
+
+    $zipPath = "$env:TEMP\cmake.zip"
+    $cmakeDir = "$env:LOCALAPPDATA\Programs\CMake"
+
+    try {
+        Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -UseBasicParsing
+
+        Write-Info "extracting cmake..."
+        $extractPath = "$env:TEMP\cmake-extract"
+        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+
+        # Find the extracted cmake folder (has version in name)
+        $cmakeExtracted = Get-ChildItem -Path $extractPath -Directory | Select-Object -First 1
+
+        if (Test-Path $cmakeDir) {
+            Remove-Item $cmakeDir -Recurse -Force
+        }
+        Move-Item $cmakeExtracted.FullName $cmakeDir -Force
+
+        Add-ToPath "$cmakeDir\bin"
+
+        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+        Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+
+        Write-Ok "cmake installed"
+    } catch {
+        Write-Warn "failed to install cmake: $_"
+    }
+}
+
+# MAKE (for some neovim plugins)
+
+function Install-Make {
+    if (Test-CommandExists "make") {
+        Write-Ok "make already installed"
+        return
+    }
+
+    # If MinGW is installed, make should be available via mingw32-make
+    $mingwMake = "$env:LOCALAPPDATA\Programs\mingw64\bin\mingw32-make.exe"
+    if (Test-Path $mingwMake) {
+        # Create a 'make' alias by copying
+        Copy-Item $mingwMake "$env:LOCALAPPDATA\Programs\mingw64\bin\make.exe" -Force
+        Write-Ok "make available (via mingw)"
+        return
+    }
+
+    Write-Info "make will be available after mingw installation"
 }
 
 # NEOVIM
@@ -1332,7 +1441,10 @@ function Main {
     }
 
     if ($install.Editors) {
-        Install-MinGW  # gcc for neovim treesitter
+        Install-MinGW    # gcc for neovim treesitter
+        Install-NodeJS   # npm for LSPs (pyright, markdownlint, etc.)
+        Install-CMake    # for telescope-fzf-native and other plugins
+        Install-Make     # create make alias from mingw
         Install-Neovim
         Install-VSCode
     }
