@@ -78,7 +78,12 @@ function Get-GitHubLatestRelease {
     param([string]$Repo)
     $url = "https://api.github.com/repos/$Repo/releases/latest"
     try {
-        $release = Invoke-RestMethod -Uri $url -Headers @{ "User-Agent" = "PowerShell" }
+        $headers = @{ "User-Agent" = "PowerShell" }
+        # Use GitHub token if available (avoids rate limiting)
+        if ($env:GITHUB_TOKEN) {
+            $headers["Authorization"] = "token $env:GITHUB_TOKEN"
+        }
+        $release = Invoke-RestMethod -Uri $url -Headers $headers
         return $release
     } catch {
         Write-Warn "failed to get latest release for $Repo"
