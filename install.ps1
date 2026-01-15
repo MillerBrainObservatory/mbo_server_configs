@@ -126,7 +126,7 @@ function Get-InstallationChoices {
     $choices = @{
         Shell = Confirm-InstallGroup -Name "Shell" -Description "Terminal environment" -Items @("PowerShell 7", "JetBrainsMono Nerd Font", "FiraCode")
         CliTools = Confirm-InstallGroup -Name "CLI Tools" -Description "Command line utilities" -Items @("git", "lazygit", "fd", "ripgrep", "fzf", "bat", "delta", "eza", "zoxide", "starship", "fastfetch")
-        Editors = Confirm-InstallGroup -Name "Editors" -Description "Code editors" -Items @("Neovim", "VS Code")
+        Editors = Confirm-InstallGroup -Name "Editors" -Description "Code editors + compiler" -Items @("MinGW (gcc)", "Neovim", "VS Code")
         Python = Confirm-InstallGroup -Name "Python" -Description "Python environment via uv (no system Python)" -Items @("uv", "Python 3.12", "ruff", "ty", "pynvim")
         Configs = Confirm-InstallGroup -Name "Configs" -Description "Symlink configuration files" -Items @("nvim", "lazygit", "starship", "fastfetch")
     }
@@ -308,6 +308,48 @@ function Install-Git {
 
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
     Write-Ok "git installed"
+}
+
+# MINGW (GCC for Neovim treesitter)
+
+function Install-MinGW {
+    if (Test-CommandExists "gcc") {
+        Write-Ok "gcc already installed: $(gcc --version | Select-Object -First 1)"
+        return
+    }
+
+    Write-Info "installing mingw (gcc for neovim treesitter)..."
+
+    # Download MinGW from winlibs (standalone, no installer needed)
+    $mingwUrl = "https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0posix-19.1.1-12.0.0-ucrt-r2/winlibs-x86_64-posix-seh-gcc-14.2.0-mingw-w64ucrt-12.0.0-r2.zip"
+    $zipPath = "$env:TEMP\mingw.zip"
+    $mingwDir = "$env:LOCALAPPDATA\Programs\mingw64"
+
+    try {
+        Write-Info "downloading mingw (this may take a moment)..."
+        Invoke-WebRequest -Uri $mingwUrl -OutFile $zipPath -UseBasicParsing
+
+        Write-Info "extracting mingw..."
+        # Extract to temp first, then move
+        $extractPath = "$env:TEMP\mingw-extract"
+        Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+
+        # Move the mingw64 folder to Programs
+        if (Test-Path $mingwDir) {
+            Remove-Item $mingwDir -Recurse -Force
+        }
+        Move-Item "$extractPath\mingw64" $mingwDir -Force
+
+        # Add to PATH
+        Add-ToPath "$mingwDir\bin"
+
+        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
+        Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
+
+        Write-Ok "mingw (gcc) installed"
+    } catch {
+        Write-Warn "failed to install mingw: $_"
+    }
 }
 
 # NEOVIM
@@ -1290,6 +1332,7 @@ function Main {
     }
 
     if ($install.Editors) {
+        Install-MinGW  # gcc for neovim treesitter
         Install-Neovim
         Install-VSCode
     }
