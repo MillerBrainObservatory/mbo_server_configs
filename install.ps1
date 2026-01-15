@@ -70,7 +70,17 @@ function Add-ToPath {
     if ($currentPath -notlike "*$Path*") {
         [System.Environment]::SetEnvironmentVariable("Path", "$Path;$currentPath", "User")
         $env:Path = "$Path;$env:Path"
-        Write-Info "added $Path to PATH"
+        Write-Info "added $Path to user PATH"
+    }
+}
+
+function Add-ToMachinePath {
+    param([string]$Path)
+    $currentPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine")
+    if ($currentPath -notlike "*$Path*") {
+        [System.Environment]::SetEnvironmentVariable("Path", "$Path;$currentPath", "Machine")
+        $env:Path = "$Path;$env:Path"
+        Write-Info "added $Path to system PATH (all users)"
     }
 }
 
@@ -310,7 +320,7 @@ function Install-Git {
     Write-Ok "git installed"
 }
 
-# MINGW (GCC for Neovim treesitter)
+# MINGW (GCC for Neovim treesitter) - installed globally for all users
 
 function Install-MinGW {
     if (Test-CommandExists "gcc") {
@@ -318,41 +328,40 @@ function Install-MinGW {
         return
     }
 
-    Write-Info "installing mingw (gcc for neovim treesitter)..."
+    Write-Info "installing mingw (gcc) globally..."
 
     # Download MinGW from winlibs (standalone, no installer needed)
     $mingwUrl = "https://github.com/brechtsanders/winlibs_mingw/releases/download/14.2.0posix-19.1.1-12.0.0-ucrt-r2/winlibs-x86_64-posix-seh-gcc-14.2.0-mingw-w64ucrt-12.0.0-r2.zip"
     $zipPath = "$env:TEMP\mingw.zip"
-    $mingwDir = "$env:LOCALAPPDATA\Programs\mingw64"
+    $mingwDir = "$env:ProgramFiles\mingw64"
 
     try {
         Write-Info "downloading mingw (this may take a moment)..."
         Invoke-WebRequest -Uri $mingwUrl -OutFile $zipPath -UseBasicParsing
 
         Write-Info "extracting mingw..."
-        # Extract to temp first, then move
         $extractPath = "$env:TEMP\mingw-extract"
         Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
 
-        # Move the mingw64 folder to Programs
+        # Move to Program Files (global location)
         if (Test-Path $mingwDir) {
             Remove-Item $mingwDir -Recurse -Force
         }
         Move-Item "$extractPath\mingw64" $mingwDir -Force
 
-        # Add to PATH
-        Add-ToPath "$mingwDir\bin"
+        # Add to system PATH (all users)
+        Add-ToMachinePath "$mingwDir\bin"
 
         Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
         Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
 
-        Write-Ok "mingw (gcc) installed"
+        Write-Ok "mingw (gcc) installed globally"
     } catch {
         Write-Warn "failed to install mingw: $_"
     }
 }
 
-# NODE.JS (for LSPs like pyright, markdownlint)
+# NODE.JS (for LSPs like pyright, markdownlint) - installed globally for all users
 
 function Install-NodeJS {
     if (Test-CommandExists "node") {
@@ -360,12 +369,12 @@ function Install-NodeJS {
         return
     }
 
-    Write-Info "installing node.js (for LSPs)..."
+    Write-Info "installing node.js globally..."
 
     $nodeVersion = "20.18.0"
     $nodeUrl = "https://nodejs.org/dist/v$nodeVersion/node-v$nodeVersion-win-x64.zip"
     $zipPath = "$env:TEMP\node.zip"
-    $nodeDir = "$env:LOCALAPPDATA\Programs\nodejs"
+    $nodeDir = "$env:ProgramFiles\nodejs"
 
     try {
         Invoke-WebRequest -Uri $nodeUrl -OutFile $zipPath -UseBasicParsing
@@ -379,18 +388,19 @@ function Install-NodeJS {
         }
         Move-Item "$extractPath\node-v$nodeVersion-win-x64" $nodeDir -Force
 
-        Add-ToPath $nodeDir
+        # Add to system PATH (all users)
+        Add-ToMachinePath $nodeDir
 
         Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
         Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
 
-        Write-Ok "node.js installed"
+        Write-Ok "node.js installed globally"
     } catch {
         Write-Warn "failed to install node.js: $_"
     }
 }
 
-# CMAKE (for some neovim plugins like telescope-fzf-native)
+# CMAKE (for some neovim plugins like telescope-fzf-native) - installed globally for all users
 
 function Install-CMake {
     if (Test-CommandExists "cmake") {
@@ -398,7 +408,7 @@ function Install-CMake {
         return
     }
 
-    Write-Info "installing cmake..."
+    Write-Info "installing cmake globally..."
 
     $release = Get-GitHubLatestRelease "Kitware/CMake"
     if (-not $release) {
@@ -413,7 +423,7 @@ function Install-CMake {
     }
 
     $zipPath = "$env:TEMP\cmake.zip"
-    $cmakeDir = "$env:LOCALAPPDATA\Programs\CMake"
+    $cmakeDir = "$env:ProgramFiles\CMake"
 
     try {
         Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $zipPath -UseBasicParsing
@@ -430,12 +440,13 @@ function Install-CMake {
         }
         Move-Item $cmakeExtracted.FullName $cmakeDir -Force
 
-        Add-ToPath "$cmakeDir\bin"
+        # Add to system PATH (all users)
+        Add-ToMachinePath "$cmakeDir\bin"
 
         Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
         Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
 
-        Write-Ok "cmake installed"
+        Write-Ok "cmake installed globally"
     } catch {
         Write-Warn "failed to install cmake: $_"
     }
@@ -449,11 +460,11 @@ function Install-Make {
         return
     }
 
-    # If MinGW is installed, make should be available via mingw32-make
-    $mingwMake = "$env:LOCALAPPDATA\Programs\mingw64\bin\mingw32-make.exe"
+    # If MinGW is installed globally, make should be available via mingw32-make
+    $mingwMake = "$env:ProgramFiles\mingw64\bin\mingw32-make.exe"
     if (Test-Path $mingwMake) {
         # Create a 'make' alias by copying
-        Copy-Item $mingwMake "$env:LOCALAPPDATA\Programs\mingw64\bin\make.exe" -Force
+        Copy-Item $mingwMake "$env:ProgramFiles\mingw64\bin\make.exe" -Force
         Write-Ok "make available (via mingw)"
         return
     }
