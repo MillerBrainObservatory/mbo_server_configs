@@ -617,19 +617,19 @@ function Install-Python {
     }
 
     # install uv tools
+    $oldErrorPref = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     foreach ($tool in @("ruff", "ty")) {
-        $installed = & "$LOCAL_BIN\uv.exe" tool list 2>$null | Select-String $tool
-        if ($installed) {
+        $toolList = & "$LOCAL_BIN\uv.exe" tool list 2>&1
+        if ($toolList -match $tool) {
             Write-Ok "$tool already installed"
         } else {
             Write-Info "installing $tool..."
-            $oldErrorPref = $ErrorActionPreference
-            $ErrorActionPreference = "Continue"
             & "$LOCAL_BIN\uv.exe" tool install $tool 2>&1 | Out-Null
-            $ErrorActionPreference = $oldErrorPref
             Write-Ok "$tool installed"
         }
     }
+    $ErrorActionPreference = $oldErrorPref
 }
 
 # WINDOWS TERMINAL CONFIG
