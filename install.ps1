@@ -907,13 +907,14 @@ function Install-Configs {
         if (Test-Path "$CONFIG_ROOT\.git") {
             Push-Location $CONFIG_ROOT
             $null = git pull --ff-only 2>&1
+            $null = git submodule update --init --recursive 2>&1
             Pop-Location
             Write-Ok "configs updated"
         } else {
             if (Test-Path $CONFIG_ROOT) {
                 Remove-Item $CONFIG_ROOT -Recurse -Force
             }
-            $null = git clone "$REPO_URL.git" $CONFIG_ROOT 2>&1
+            $null = git clone --recursive "$REPO_URL.git" $CONFIG_ROOT 2>&1
             Write-Ok "configs cloned"
         }
         $configSource = "$CONFIG_ROOT\config"
@@ -926,6 +927,7 @@ function Install-Configs {
         "$env:USERPROFILE\.config\lazygit" = "$configSource\lazygit"
         "$env:USERPROFILE\.config\starship.toml" = "$configSource\starship.toml"
         "$env:USERPROFILE\.config\fastfetch" = "$configSource\fastfetch"
+        "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" = "$configSource\powershell\profile.ps1"
     }
 
     foreach ($link in $links.GetEnumerator()) {
@@ -937,7 +939,14 @@ function Install-Configs {
         }
 
         if (Test-Path $link.Key) {
-            Remove-Item $link.Key -Recurse -Force -ErrorAction SilentlyContinue
+            $existing = Get-Item $link.Key -Force
+            if ($existing.LinkType -eq "SymbolicLink") {
+                Remove-Item $link.Key -Recurse -Force -ErrorAction SilentlyContinue
+            } else {
+                $backup = "$($link.Key).backup.$(Get-Date -Format 'yyyyMMddHHmmss')"
+                Move-Item $link.Key $backup -Force
+                Write-Warn "backed up existing $(Split-Path $link.Key -Leaf) to $backup"
+            }
         }
 
         try {
@@ -1015,11 +1024,6 @@ function Get-ConfigurationPreferences {
         GitEditor = $null
         ConfigureVSCode = $true
         ConfigureWindowsTerminal = $true
-        PSReadLineHistory = $true
-        PSReadLinePrediction = $true
-        ReplaceLs = $true
-        ReplaceCat = $true
-        ReplaceCd = $true
     }
 
     # Auto-accept all config with defaults
@@ -1062,58 +1066,6 @@ function Get-ConfigurationPreferences {
     }
     Write-Host ""
 
-    # PSReadLine History Search
-    Write-Host "  PSReadLine History Search" -ForegroundColor Yellow
-    Write-Host "  Enable Up/Down arrow to search command history based on current input." -ForegroundColor Gray
-    Write-Host "  Example: Type 'git' then press Up to find previous git commands." -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "    [Y] Enable history search (recommended)" -ForegroundColor White
-    Write-Host "    [N] Keep default (cycle through all history)" -ForegroundColor White
-    Write-Host ""
-
-    $response = Read-Host "  Enable history search? [Y/n]"
-    $prefs.PSReadLineHistory = ($response -eq "" -or $response -match "^[Yy]")
-    Write-Host "  -> $(if ($prefs.PSReadLineHistory) { 'Enabled' } else { 'Disabled' })" -ForegroundColor $(if ($prefs.PSReadLineHistory) { 'Green' } else { 'DarkGray' })
-    Write-Host ""
-
-    # PSReadLine Predictive IntelliSense
-    Write-Host "  PSReadLine Predictive IntelliSense" -ForegroundColor Yellow
-    Write-Host "  Show inline suggestions based on your command history as you type." -ForegroundColor Gray
-    Write-Host "  Press Right arrow to accept a suggestion." -ForegroundColor Gray
-    Write-Host ""
-    Write-Host "    [Y] Enable predictions" -ForegroundColor White
-    Write-Host "    [N] Disable predictions" -ForegroundColor White
-    Write-Host ""
-
-    $response = Read-Host "  Enable predictions? [Y/n]"
-    $prefs.PSReadLinePrediction = ($response -eq "" -or $response -match "^[Yy]")
-    Write-Host "  -> $(if ($prefs.PSReadLinePrediction) { 'Enabled' } else { 'Disabled' })" -ForegroundColor $(if ($prefs.PSReadLinePrediction) { 'Green' } else { 'DarkGray' })
-    Write-Host ""
-
-    # Shell Command Replacements
-    Write-Host "  Shell Command Replacements" -ForegroundColor Yellow
-    Write-Host "  Replace built-in commands with modern alternatives?" -ForegroundColor Gray
-    Write-Host ""
-
-    # ls -> eza
-    Write-Host "    ls -> eza (icons, colors, better formatting)" -ForegroundColor White
-    $response = Read-Host "      Replace ls? [Y/n] (recommended)"
-    $prefs.ReplaceLs = ($response -eq "" -or $response -match "^[Yy]")
-    Write-Host "      -> $(if ($prefs.ReplaceLs) { 'Yes' } else { 'No' })" -ForegroundColor $(if ($prefs.ReplaceLs) { 'Green' } else { 'DarkGray' })
-
-    # cat -> bat
-    Write-Host "    cat -> bat (syntax highlighting)" -ForegroundColor White
-    $response = Read-Host "      Replace cat? [Y/n] (recommended)"
-    $prefs.ReplaceCat = ($response -eq "" -or $response -match "^[Yy]")
-    Write-Host "      -> $(if ($prefs.ReplaceCat) { 'Yes' } else { 'No' })" -ForegroundColor $(if ($prefs.ReplaceCat) { 'Green' } else { 'DarkGray' })
-
-    # cd -> z (zoxide)
-    Write-Host "    cd -> zoxide (smart directory jump)" -ForegroundColor White
-    $response = Read-Host "      Replace cd? [Y/n] (recommended)"
-    $prefs.ReplaceCd = ($response -eq "" -or $response -match "^[Yy]")
-    Write-Host "      -> $(if ($prefs.ReplaceCd) { 'Yes' } else { 'No' })" -ForegroundColor $(if ($prefs.ReplaceCd) { 'Green' } else { 'DarkGray' })
-    Write-Host ""
-
     # VS Code Configuration
     Write-Host "  VS Code Configuration" -ForegroundColor Yellow
     Write-Host "  Configure VS Code to use PowerShell as default terminal" -ForegroundColor Gray
@@ -1153,162 +1105,6 @@ function Set-GitEditor {
     Write-Info "setting git editor to $($Editor.Name)..."
     git config --global core.editor $Editor.Command
     Write-Ok "git editor set to $($Editor.Name)"
-}
-
-function Install-PowerShellProfile {
-    param([hashtable]$Preferences)
-
-    Write-Info "setting up powershell profile..."
-
-    $profileDir = "$env:USERPROFILE\Documents\PowerShell"
-    $profilePath = "$profileDir\Microsoft.PowerShell_profile.ps1"
-
-    if (-not (Test-Path $profileDir)) {
-        New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
-    }
-
-    # check if already configured
-    if (Test-Path $profilePath) {
-        $existing = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
-        if ($existing -match "MBO PowerShell Profile") {
-            Write-Ok "profile already configured"
-            return
-        }
-    }
-
-    # use passed preferences or defaults
-    $prefs = if ($Preferences) { $Preferences } else {
-        @{
-            PSReadLineHistory = $true
-            PSReadLinePrediction = $true
-            ReplaceLs = $true
-            ReplaceCat = $true
-            ReplaceCd = $true
-        }
-    }
-
-    # build profile content
-    $content = @'
-# MBO PowerShell Profile
-
-# path
-$env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
-
-# aliases
-Set-Alias -Name lg -Value lazygit -ErrorAction SilentlyContinue
-Set-Alias -Name vim -Value nvim -ErrorAction SilentlyContinue
-Set-Alias -Name vi -Value nvim -ErrorAction SilentlyContinue
-Set-Alias -Name g -Value git -ErrorAction SilentlyContinue
-
-'@
-
-    # PSReadLine history search
-    if ($prefs.PSReadLineHistory) {
-        $content += @'
-# PSReadLine history search (type partial command, then up/down to search)
-Set-PSReadLineOption -HistorySearchCursorMovesToEnd
-Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward
-Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
-
-'@
-    }
-
-    # PSReadLine predictive intellisense
-    if ($prefs.PSReadLinePrediction) {
-        $content += @'
-# PSReadLine predictive IntelliSense (press Right arrow to accept)
-Set-PSReadLineOption -PredictionSource History
-Set-PSReadLineOption -PredictionViewStyle InlineView
-
-'@
-    }
-
-    # ls replacements
-    if ($prefs.ReplaceLs) {
-        $content += @'
-# ls -> eza (size, icon, name by default)
-Remove-Item Alias:ls -Force -ErrorAction SilentlyContinue
-function ls { eza -l --icons --group-directories-first --no-permissions --no-time --no-user @args }
-function lsv { eza -l --icons --group-directories-first @args }
-function la { eza -la --icons --group-directories-first --no-permissions --no-time --no-user @args }
-function lt { eza -T --icons --group-directories-first @args }
-
-'@
-    }
-
-    # cat replacement
-    if ($prefs.ReplaceCat) {
-        $content += @'
-# cat -> bat (syntax highlighting)
-Remove-Item Alias:cat -Force -ErrorAction SilentlyContinue
-function cat { bat --paging=never @args }
-
-'@
-    }
-
-    # cd replacement and zoxide
-    if ($prefs.ReplaceCd) {
-        $content += @'
-# cd -> zoxide (smart directory jump)
-if (Get-Command zoxide -ErrorAction SilentlyContinue) {
-    Invoke-Expression (& { (zoxide init powershell --cmd cd | Out-String) })
-}
-
-'@
-    } else {
-        $content += @'
-# zoxide (use z to jump)
-if (Get-Command zoxide -ErrorAction SilentlyContinue) {
-    Invoke-Expression (& { (zoxide init powershell | Out-String) })
-}
-
-'@
-    }
-
-    $content += @'
-function .. { Set-Location .. }
-function ... { Set-Location ..\.. }
-
-# directory shortcuts (type name directly to jump)
-function mbospace { Set-Location Y:\ }
-function s1data { Set-Location X:\ }
-
-# git shortcuts
-function gs { git status @args }
-function ga { git add @args }
-function gc { git commit @args }
-function gp { git push @args }
-function gl { git pull @args }
-function gd { git diff @args }
-function gco { git checkout @args }
-function glog { git log --oneline --graph --decorate -20 @args }
-
-# starship prompt
-if (Get-Command starship -ErrorAction SilentlyContinue) {
-    Invoke-Expression (&starship init powershell)
-}
-
-# fastfetch + tips
-if (Get-Command fastfetch -ErrorAction SilentlyContinue) {
-    fastfetch
-    Write-Host ""
-    Write-Host "  quick reference" -ForegroundColor Cyan
-    Write-Host "    ls           size + icon + name       lsv         detailed list" -ForegroundColor Gray
-    Write-Host "    lt           tree view                la          list all (hidden)" -ForegroundColor Gray
-    Write-Host "    cd <name>    smart jump (zoxide)      cd -        go back" -ForegroundColor Gray
-    Write-Host "    fd <pat>     find files               rg <pat>    search contents" -ForegroundColor Gray
-    Write-Host "    cat <file>   view with syntax         nvim        editor" -ForegroundColor Gray
-    Write-Host "    lg           lazygit                  uv run      run python script" -ForegroundColor Gray
-    Write-Host ""
-}
-'@
-
-    if (Test-Path $profilePath) {
-        Add-Content -Path $profilePath -Value "`n`n$content"
-    } else {
-        Set-Content -Path $profilePath -Value $content
-    }
-    Write-Ok "profile created"
 }
 
 # GIT BASH PROFILE
@@ -1486,8 +1282,7 @@ function Main {
         Set-WindowsTerminalConfig
     }
 
-    # Install shell profiles with preferences
-    Install-PowerShellProfile -Preferences $preferences
+    # Install git bash profile (powershell profile is symlinked by Install-Configs)
     Install-GitBashProfile
 
     Show-Summary
