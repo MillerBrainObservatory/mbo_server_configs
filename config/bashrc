@@ -13,6 +13,10 @@ HISTSIZE=10000
 HISTFILESIZE=20000
 shopt -s histappend
 
+# prefix history search: Up/Down step through history entries that start with the typed text
+bind '"\e[A": history-search-backward'
+bind '"\e[B": history-search-forward'
+
 # check window size after each command
 shopt -s checkwinsize
 

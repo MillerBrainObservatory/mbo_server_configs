@@ -8,7 +8,7 @@ run once on a new user's machine to set up their dev environment.
 **requires admin powershell:**
 
 ```powershell
-iex (irm https://raw.githubusercontent.com/MillerBrainObservatory/mbo_server_configs/main/install.ps1)
+iex (irm https://raw.githubusercontent.com/MillerBrainObservatory/mbo_server_configs/master/install.ps1)
 ```
 
 or clone and run:

@@ -3,7 +3,7 @@
 # installs configs + optional tools to ~/.local (no sudo required)
 #
 # usage:
-#   curl -fsSL https://raw.githubusercontent.com/MillerBrainObservatory/mbo_server_configs/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/MillerBrainObservatory/mbo_server_configs/master/install.sh | bash
 #   ./install.sh
 
 set -e

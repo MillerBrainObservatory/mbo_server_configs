@@ -1129,6 +1129,12 @@ function Install-GitBashProfile {
 # path
 export PATH="$HOME/.local/bin:$PATH"
 
+# prefix history search: Up/Down step through history entries that start with the typed text
+if [[ $- == *i* ]]; then
+    bind '"\e[A": history-search-backward'
+    bind '"\e[B": history-search-forward'
+fi
+
 # aliases
 alias lg='lazygit'
 alias vim='nvim'
