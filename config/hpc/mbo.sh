@@ -44,6 +44,20 @@ mbo-run() {
     "$exe" "$@"
 }
 
+# install the python tools neovim needs (ruff, ty); shared bin if writable
+mbo-nvim-setup() {
+    local bindir="$MBO_BIN"; [ -w "$bindir" ] || bindir="$HOME/.local/bin"
+    UV_TOOL_BIN_DIR="$bindir" uv tool install ruff
+    UV_TOOL_BIN_DIR="$bindir" uv tool install ty
+    echo "ruff, ty -> $bindir"
+}
+
+# pull latest configs + nvim submodule (run as mbo_soft, who owns the repo)
+mbo-update() {
+    local repo="$MBO_REPOS/mbo_server_configs"
+    git -C "$repo" pull --ff-only && git -C "$repo" submodule update --init --recursive
+}
+
 # data transfer (run large transfers from a DTN node: ssh <user>@dtn02-hpc)
 mbo-stage() {
     if [ -z "$1" ]; then echo "usage: mbo-stage <path-under-mbo_data> [dest]"; return 1; fi
