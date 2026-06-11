@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+#SBATCH --job-name=mbo
+#SBATCH --partition=hpc_a10_a
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
+#SBATCH --time=08:00:00
+#SBATCH --output=%x-%j.out
+
+# load the shared mbo environment and activate the shared venv
+source /lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs/config/hpc/mbo.sh
+source "$MBO_ENV/bin/activate"
+
+# replace with your command, e.g.:
+mbo --help
