@@ -1,17 +1,16 @@
 # mbo_server_configs
 
-admin setup script for configuring windows machines for lab users.
-run once on a new user's machine to set up their dev environment.
+Dev environment setup for MBO machines: Windows workstations and the Rockefeller HPC.
 
-## quick install
+## install — windows
 
-**requires admin powershell:**
+Admin PowerShell:
 
 ```powershell
 iex (irm https://raw.githubusercontent.com/MillerBrainObservatory/mbo_server_configs/master/install.ps1)
 ```
 
-or clone and run:
+or:
 
 ```powershell
 git clone https://github.com/MillerBrainObservatory/mbo_server_configs.git
@@ -19,115 +18,71 @@ cd mbo_server_configs
 .\install.ps1
 ```
 
-## HPC (Rockefeller)
+### what it does (windows)
 
-no root, no winget. the shared stack (CLI tools, neovim, the `mbo_utilities` venv)
-lives once under `/lustre/fs8/mbo/scratch/mbo_soft`; users point their shell at it.
+- IDEs: VS Code, PyCharm Community, Neovim
+- terminal: PowerShell Core (default), JetBrainsMono Nerd Font + FiraCode, Windows Terminal config
+- tools: git, lazygit, fd, ripgrep, fzf, zoxide, starship, bat, delta, eza
+- python (uv): uv, python 3.12, ruff, ty, pynvim
+- configs symlinked from `config/`; powershell profile with aliases + git shortcuts
 
-```bash
-# user (lab member): configs, shell env, ~/scratch link, terminfo
-cd /lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs
-./install_hpc.sh
+post-install: close and reopen Windows Terminal, then run `nvim` (`:checkhealth` to verify).
 
-# admin (run as mbo_soft): build/refresh the shared stack
-./install_hpc.sh --admin              # pins mbo_utilities v3.2.0
-./install_hpc.sh --admin --ref v3.2.0 # pin a different release tag
+requires Windows 10/11, admin privileges, winget.
+
+pwsh as default SSH shell:
+
+```powershell
+New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Program Files\PowerShell\7\pwsh.exe" -PropertyType String -Force
 ```
 
-after install, `source ~/.bashrc`:
-- locations: `cdsoft cddata cdlbm cdlsm cdscratch cdrepos` (and `$MBO_*` vars)
-- python: `mbo` (cli), `mbo-activate`, `mbo-run <cmd>` (shared venv)
-- transfer: `mbo-stage <path-under-mbo_data> [dest]`, `mbo-pull`, `mbo-push` (rsync; use a DTN node for large transfers)
-- slurm: `gpu [part] [time] [n]`, `cpu`, `mbo-jobs`, `mbo-gpus`; batch template at `config/hpc/job.sbatch.template`
+## install — hpc (rockefeller)
 
-home is 40 GB with strict inode limits, so the uv cache/pythons go to scratch
-(`UV_LINK_MODE=copy`, `UV_CACHE_DIR=$MBO_SCRATCH/.uv`).
+Shared stack lives under `/lustre/fs8/mbo/scratch/mbo_soft`.
 
-## what it does (windows)
+user (lab member):
 
-### IDEs
-- **VS Code** - primary editor
-- **PyCharm Community** - python IDE
-- **Neovim** - terminal editor with LSP, Telescope, Treesitter
+```bash
+/lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs/install_hpc.sh
+source ~/.bashrc
+```
 
-### terminal setup
-- installs **PowerShell Core** (pwsh.exe) and sets as default
-- **hides legacy Windows PowerShell** from terminal
-- installs **JetBrainsMono Nerd Font** and sets as terminal font
-- installs **FiraCode** font
-- configures Windows Terminal settings automatically
+admin (as mbo_soft):
 
-### dev tools (via winget)
-- git, lazygit
-- fd, ripgrep, fzf, zoxide
-- starship (prompt), bat, delta, eza
+```bash
+cd /lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs
+./install_hpc.sh --admin               # pins mbo_utilities v3.2.0
+./install_hpc.sh --admin --ref v3.2.0  # other tag
+```
 
-### python (via uv)
-- **uv** - fast python package manager
-- **python 3.12** - managed by uv (not system python)
-- **ruff** - fast linter
-- **ty** - type checker
-- neovim python provider (pynvim)
-- disables Windows Store python aliases
+### what it does (hpc)
 
-### configs
-symlinked to `~/.mbo_server_configs/config/`:
-- neovim (`%LOCALAPPDATA%\nvim`)
-- lazygit (`~/.config/lazygit`)
-- starship (`~/.config/starship.toml`)
-- vim (`~/.vimrc`)
+- admin: CLI tools + neovim to `mbo_soft/bin`, shared `mbo_utilities` venv at `mbo_soft/envs/mbo`, `mbo` cli on PATH
+- user: config symlinks, `~/scratch` link, kitty terminfo, `config/hpc/mbo.sh` sourced from `~/.bashrc`
+- locations: `cdsoft cddata cdlbm cdlsm cdscratch cdrepos`, `$MBO_*` vars
+- python: `mbo`, `mbo-activate`, `mbo-run <cmd>`
+- transfer: `mbo-stage <path-under-mbo_data> [dest]`, `mbo-pull`, `mbo-push`
+- slurm: `gpu [part] [time] [n]`, `cpu`, `mbo-jobs`, `mbo-gpus`; template `config/hpc/job.sbatch.template`
 
-### powershell profile
-creates profile with:
-- aliases: `lg`, `vim`, `vi`, `g`, `ll`, `la`
-- git shortcuts: `gs`, `ga`, `gc`, `gp`, `gl`, `gd`, `gco`, `gb`, `glog`
-- starship prompt
-- zoxide (smart cd)
-
-
-### Set powershell as default SSH prompt
-New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Program Files\PowerShell\7\pwsh.exe" -PropertyType String -Force
-
-DefaultShell : C:\Program Files\PowerShell\7\pwsh.exe
-PSPath       : Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SOFTWARE\OpenSSH
-PSParentPath : Microsoft.PowerShell.Core\Registry::HKEY_LOCAL_MACHINE\SOFTWARE
-PSChildName  : OpenSSH
-PSDrive      : HKLM
-PSProvider   : Microsoft.PowerShell.Core\Registry
+paths live in `config/hpc/env.sh` — change `MBO_ROOT` to move filesystems.
 
 ## structure
 
 ```
 mbo_server_configs/
-├── install.ps1         # windows admin setup script
-├── install.sh          # generic linux server script
-├── install_hpc.sh      # rockefeller hpc (user + admin modes)
+├── install.ps1         # windows
+├── install.sh          # generic linux
+├── install_hpc.sh      # rockefeller hpc (user + admin)
 ├── config/
-│   ├── nvim/           # neovim config
-│   │   └── init.lua
-│   ├── tmux/           # tmux config (linux)
-│   │   └── tmux.conf
+│   ├── nvim/
+│   ├── tmux/
 │   ├── lazygit/
-│   │   └── config.yml
-│   ├── hpc/            # hpc shell env + sbatch template
-│   │   ├── mbo.sh
+│   ├── hpc/
+│   │   ├── env.sh      # locations + uv env (single source of truth)
+│   │   ├── mbo.sh      # shell setup, aliases, helpers (sources env.sh)
 │   │   └── job.sbatch.template
 │   ├── starship.toml
 │   ├── vimrc
 │   └── btop/
 └── README.md
 ```
-
-## post-install
-
-1. **close and reopen Windows Terminal** (required)
-2. terminal should now open pwsh with nerd font
-3. legacy Windows PowerShell is hidden
-4. run `nvim` - plugins auto-install on first launch
-5. run `:checkhealth` in nvim to verify
-
-## requirements
-
-- windows 10/11
-- **admin privileges** (required for symlinks, fonts, terminal config)
-- winget (App Installer from Microsoft Store)

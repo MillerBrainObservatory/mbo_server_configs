@@ -13,22 +13,18 @@
 set -euo pipefail
 
 USER="${USER:-$(id -un)}"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# locations
-MBO_ROOT="${MBO_ROOT:-/lustre/fs8/mbo/scratch}"
-MBO_SOFT="$MBO_ROOT/mbo_soft"
-MBO_BIN="$MBO_SOFT/bin"
-MBO_REPOS="$MBO_SOFT/repos"
-MBO_ENVS="$MBO_SOFT/envs"
-MBO_ENV="$MBO_ENVS/mbo"
-MBO_DATA="$MBO_ROOT/mbo_data"
-MBO_SCRATCH="$MBO_ROOT/$USER"
+# locations + uv env: single source of truth (edit config/hpc/env.sh to move filesystems)
+# shellcheck source=config/hpc/env.sh
+source "$REPO_DIR/config/hpc/env.sh"
+
+# installer config
 MBO_UTILITIES_URL="https://github.com/millerbrainobservatory/mbo_utilities"
 MBO_UTILITIES_REF="v3.2.0"
 
 MODE="user"
 ASSUME_YES=0
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; BLUE='\033[0;34m'; YELLOW='\033[1;33m'; NC='\033[0m'
 info() { echo -e "${BLUE}[INFO]${NC} $*"; }
@@ -121,7 +117,7 @@ build_shared_venv() {
 
     if [[ ! -x "$MBO_ENV/bin/python" ]]; then
         info "creating shared venv at $MBO_ENV (python 3.12)..."
-        UV_LINK_MODE=copy "$uv" venv "$MBO_ENV" --python 3.12
+        "$uv" venv "$MBO_ENV" --python 3.12
     else
         ok "shared venv exists: $MBO_ENV"
     fi
@@ -130,7 +126,7 @@ build_shared_venv() {
         warn "skipped mbo_utilities install"; return 0
     }
     info "installing mbo_utilities @ $MBO_UTILITIES_REF (downloads torch/cuda, several minutes)..."
-    UV_LINK_MODE=copy "$uv" pip install --python "$MBO_ENV/bin/python" \
+    "$uv" pip install --python "$MBO_ENV/bin/python" \
         "mbo_utilities @ git+$MBO_UTILITIES_URL@$MBO_UTILITIES_REF"
 
     # expose console scripts on the shared PATH (avoids shadowing python/pip)

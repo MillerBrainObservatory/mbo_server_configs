@@ -3,17 +3,10 @@
 # sourced from ~/.bashrc by install_hpc.sh. defines locations, PATH, uv env,
 # aliases, and data-transfer / slurm helpers. safe in non-interactive shells.
 
-# locations (shared lab scratch on /lustre/fs8)
-export MBO_ROOT="${MBO_ROOT:-/lustre/fs8/mbo/scratch}"
-export MBO_SOFT="$MBO_ROOT/mbo_soft"
-export MBO_BIN="$MBO_SOFT/bin"
-export MBO_REPOS="$MBO_SOFT/repos"
-export MBO_NVIM="$MBO_SOFT/neovim"
-export MBO_ENV="$MBO_SOFT/envs/mbo"
-export MBO_DATA="$MBO_ROOT/mbo_data"
-export MBO_LBM="$MBO_DATA/lbm"
-export MBO_LSM="$MBO_DATA/lsm"
-export MBO_SCRATCH="$MBO_ROOT/${USER:-$(id -un)}"
+# locations + uv state (single source of truth: config/hpc/env.sh)
+_mbo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$_mbo_dir/env.sh"
+unset _mbo_dir
 
 # path: shared tools first, then user-local
 for _d in "$MBO_BIN" "$MBO_NVIM/bin" "$HOME/.local/bin"; do
@@ -24,12 +17,6 @@ export PATH
 
 export EDITOR=nvim
 export VISUAL=nvim
-
-# uv: home is 40 GB with strict inode limits, so cache + managed pythons live on
-# scratch. cache and target are different filesystems, so hardlinks fail -> copy.
-export UV_LINK_MODE=copy
-export UV_CACHE_DIR="${UV_CACHE_DIR:-$MBO_SCRATCH/.uv/cache}"
-export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$MBO_SCRATCH/.uv/python}"
 
 # terminfo fallback: kitty/wezterm/ghostty set a TERM the cluster may not know
 if ! infocmp "$TERM" >/dev/null 2>&1; then
