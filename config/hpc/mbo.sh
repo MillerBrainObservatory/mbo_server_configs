@@ -18,6 +18,9 @@ export PATH
 export EDITOR=nvim
 export VISUAL=nvim
 
+# use this repo's starship prompt regardless of ~/.config symlinks
+export STARSHIP_CONFIG="$_mbo_dir/../starship.toml"
+
 # terminfo fallback: kitty/wezterm/ghostty set a TERM the cluster may not know
 if ! infocmp "$TERM" >/dev/null 2>&1; then
     export TERM=xterm-256color

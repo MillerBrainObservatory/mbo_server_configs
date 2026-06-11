@@ -15,23 +15,25 @@ $directory\
 $git_branch\
 $git_status\
 $python\
+$line_break\
 $character"""
 
 [username]
 show_always = true
 format = "[$user]($style) in "
-style_user = "bold yellow"
+style_user = "bold #5fafff"
 style_root = "bold red"
 
 [hostname]
 ssh_only = true
-format = "[$hostname]($style) "
-style = "bold blue"
+ssh_symbol = "🌐 "
+format = "[$ssh_symbol$hostname]($style) in "
+style = "bold #5fafff"
 
 [directory]
 truncation_length = 8
 truncate_to_repo = false
-style = "bold blue"
+style = "bold #5fafff"
 read_only = " 󰌾"
 
 [git_branch]
