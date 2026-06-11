@@ -2,8 +2,10 @@
 # Requires: Nerd Font installed and enabled in terminal
 "$schema" = 'https://starship.rs/config-schema.json'
 
-# Increase timeout for slow commands (uv python can be slow on Windows)
+# Increase timeouts: slow commands (uv python on Windows) and directory scans
+# (networked filesystems like lustre on HPC can exceed the 30ms scan default)
 command_timeout = 1000
+scan_timeout = 1000
 
 # Prompt format
 format = """

@@ -19,16 +19,8 @@ export MBO_DATA="$MBO_SCRATCH/mbo_data"
 export MBO_LBM="$MBO_DATA/lbm"
 export MBO_LSM="$MBO_DATA/lsm"
 
-# your scratch: honor an existing ~/scratch, resolved to its real path so old
-# fs4 symlinks land on the current fs8; else scratch/$USER. override: set first.
-if [ -z "${MBO_USER:-}" ]; then
-    if [ -e "$HOME/scratch" ]; then
-        MBO_USER="$(cd "$HOME/scratch" 2>/dev/null && pwd -P || echo "$HOME/scratch")"
-    else
-        MBO_USER="$MBO_SCRATCH/${USER:-$(id -un)}"
-    fi
-fi
-export MBO_USER
+# your personal scratch under the lab scratch root. override: set MBO_USER first.
+export MBO_USER="${MBO_USER:-$MBO_SCRATCH/${USER:-$(id -un)}}"
 
 # uv: home is 40 GB with strict inode limits, so cache + managed pythons live on
 # your scratch. cache and target differ -> copy instead of hardlink.
