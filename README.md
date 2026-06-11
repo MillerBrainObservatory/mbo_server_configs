@@ -19,7 +19,31 @@ cd mbo_server_configs
 .\install.ps1
 ```
 
-## what it does
+## HPC (Rockefeller)
+
+no root, no winget. the shared stack (CLI tools, neovim, the `mbo_utilities` venv)
+lives once under `/lustre/fs8/mbo/scratch/mbo_soft`; users point their shell at it.
+
+```bash
+# user (lab member): configs, shell env, ~/scratch link, terminfo
+cd /lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs
+./install_hpc.sh
+
+# admin (run as mbo_soft): build/refresh the shared stack
+./install_hpc.sh --admin              # pins mbo_utilities v3.2.0
+./install_hpc.sh --admin --ref v3.2.0 # pin a different release tag
+```
+
+after install, `source ~/.bashrc`:
+- locations: `cdsoft cddata cdlbm cdlsm cdscratch cdrepos` (and `$MBO_*` vars)
+- python: `mbo` (cli), `mbo-activate`, `mbo-run <cmd>` (shared venv)
+- transfer: `mbo-stage <path-under-mbo_data> [dest]`, `mbo-pull`, `mbo-push` (rsync; use a DTN node for large transfers)
+- slurm: `gpu [part] [time] [n]`, `cpu`, `mbo-jobs`, `mbo-gpus`; batch template at `config/hpc/job.sbatch.template`
+
+home is 40 GB with strict inode limits, so the uv cache/pythons go to scratch
+(`UV_LINK_MODE=copy`, `UV_CACHE_DIR=$MBO_SCRATCH/.uv`).
+
+## what it does (windows)
 
 ### IDEs
 - **VS Code** - primary editor
@@ -76,7 +100,8 @@ PSProvider   : Microsoft.PowerShell.Core\Registry
 ```
 mbo_server_configs/
 ├── install.ps1         # windows admin setup script
-├── install.sh          # linux server script (optional)
+├── install.sh          # generic linux server script
+├── install_hpc.sh      # rockefeller hpc (user + admin modes)
 ├── config/
 │   ├── nvim/           # neovim config
 │   │   └── init.lua
@@ -84,6 +109,9 @@ mbo_server_configs/
 │   │   └── tmux.conf
 │   ├── lazygit/
 │   │   └── config.yml
+│   ├── hpc/            # hpc shell env + sbatch template
+│   │   ├── mbo.sh
+│   │   └── job.sbatch.template
 │   ├── starship.toml
 │   ├── vimrc
 │   └── btop/

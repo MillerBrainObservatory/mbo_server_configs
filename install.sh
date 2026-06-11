@@ -32,8 +32,8 @@ OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 
 # directories
 DOTFILES_ROOT="${DOTFILES_ROOT:-$HOME/.mbo_server_configs}"
-LOCAL_BIN="$HOME/.local/bin"
-LOCAL_SHARE="$HOME/.local/share"
+LOCAL_BIN="${LOCAL_BIN:-$HOME/.local/bin}"
+LOCAL_SHARE="${LOCAL_SHARE:-$HOME/.local/share}"
 
 banner() {
     echo ""
@@ -669,4 +669,7 @@ main() {
     show_summary
 }
 
-main "$@"
+# only run when executed directly, not when sourced (install_hpc.sh reuses the installers)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
