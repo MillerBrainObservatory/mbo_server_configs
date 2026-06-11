@@ -312,7 +312,7 @@ install_zoxide() {
 
     info "installing zoxide..."
 
-    if curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh 2>/dev/null; then
+    if curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh -s -- --bin-dir "$LOCAL_BIN" 2>/dev/null; then
         ok "zoxide installed"
         return 0
     fi
@@ -669,7 +669,4 @@ main() {
     show_summary
 }
 
-# only run when executed directly, not when sourced (install_hpc.sh reuses the installers)
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    main "$@"
-fi
+main "$@"

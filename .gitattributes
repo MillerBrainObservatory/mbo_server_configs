@@ -1,0 +1,8 @@
+# shell scripts run on linux/hpc — force LF so they don't break under bash
+*.sh            text eol=lf
+config/bashrc   text eol=lf
+config/aliases  text eol=lf
+config/hpc/job.sbatch.template text eol=lf
+
+# windows scripts stay CRLF
+*.ps1           text eol=crlf

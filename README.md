@@ -36,33 +36,23 @@ pwsh as default SSH shell:
 New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Program Files\PowerShell\7\pwsh.exe" -PropertyType String -Force
 ```
 
-## install — hpc (rockefeller)
+## hpc (rockefeller)
 
-Shared stack lives under `/lustre/fs8/mbo/scratch/mbo_soft`.
-
-user (lab member):
+Shared software (CLI tools, neovim, `mbo_utilities` venv, repos) lives under `/lustre/fs8/mbo/scratch/mbo_soft`, installed separately. Add the shell environment:
 
 ```bash
-/lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs/install_hpc.sh
+echo 'source /lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs/config/hpc/mbo.sh' >> ~/.bashrc
 source ~/.bashrc
-```
-
-admin (as mbo_soft):
-
-```bash
-cd /lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs
-./install_hpc.sh --admin               # pins mbo_utilities v3.2.0
-./install_hpc.sh --admin --ref v3.2.0  # other tag
 ```
 
 ### what it does (hpc)
 
-- admin: CLI tools + neovim to `mbo_soft/bin`, shared `mbo_utilities` venv at `mbo_soft/envs/mbo`, `mbo` cli on PATH
-- user: config symlinks, `~/scratch` link, kitty terminfo, `config/hpc/mbo.sh` sourced from `~/.bashrc`
-- locations: `cdsoft cddata cdlbm cdlsm cdscratch cdrepos`, `$MBO_*` vars
-- python: `mbo`, `mbo-activate`, `mbo-run <cmd>`
+- PATH: shared bin (`$MBO_BIN`) + neovim
+- locations: `$MBO_ROOT` `$MBO_SCRATCH` `$MBO_SOFT` `$MBO_DATA` `$MBO_USER`; `cdsoft cddata cdlbm cdlsm cdscratch cdme cdrepos`
+- python: `mbo`, `mbo-activate`, `mbo-run <cmd>` (venv at `$MBO_ENV`)
 - transfer: `mbo-stage <path-under-mbo_data> [dest]`, `mbo-pull`, `mbo-push`
-- slurm: `gpu [part] [time] [n]`, `cpu`, `mbo-jobs`, `mbo-gpus`; template `config/hpc/job.sbatch.template`
+- slurm: `mbo-gpu [part] [time] [n]`, `mbo-cpu`, `mbo-jobs`, `mbo-gpus`; template `config/hpc/job.sbatch.template`
+- uv cache/pythons on your scratch (`$MBO_USER/.uv`)
 
 paths live in `config/hpc/env.sh` — change `MBO_ROOT` to move filesystems.
 
@@ -72,7 +62,6 @@ paths live in `config/hpc/env.sh` — change `MBO_ROOT` to move filesystems.
 mbo_server_configs/
 ├── install.ps1         # windows
 ├── install.sh          # generic linux
-├── install_hpc.sh      # rockefeller hpc (user + admin)
 ├── config/
 │   ├── nvim/
 │   ├── tmux/
