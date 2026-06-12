@@ -38,12 +38,20 @@ New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Pr
 
 ## hpc (rockefeller)
 
-Shared software (CLI tools, neovim, `mbo_utilities` venv, repos) lives under `/lustre/fs8/mbo/scratch/mbo_soft`, installed separately. Add the shell environment:
+Shared software (CLI tools, neovim, `mbo_utilities` venv, repos) lives under `/lustre/fs8/mbo/scratch/mbo_soft`, installed separately. Nothing to install per user — just source it.
+
+### new user
+
+Run once (you must be in the `mbo` group — check with `groups`):
 
 ```bash
-echo 'source /lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs/config/hpc/mbo.sh' >> ~/.bashrc
-source ~/.bashrc
+grep -q 'config/hpc/mbo.sh' ~/.bashrc || \
+  echo 'source /lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs/config/hpc/mbo.sh' >> ~/.bashrc
+mkdir -p /lustre/fs8/mbo/scratch/$USER
+exec bash
 ```
+
+Keep that line at the end of `~/.bashrc` if you have a prompt framework (oh-my-bash, etc.).
 
 ### what it does (hpc)
 
