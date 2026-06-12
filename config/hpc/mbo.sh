@@ -106,3 +106,6 @@ command -v fd >/dev/null 2>&1 && export FZF_DEFAULT_COMMAND='fd --type f --hidde
 
 command -v starship >/dev/null 2>&1 && eval "$(starship init bash)"
 command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init bash --cmd cd)"
+
+# always return success when sourced (a missing optional tool above is not an error)
+true

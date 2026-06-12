@@ -2,9 +2,9 @@
 # Requires: Nerd Font installed and enabled in terminal
 "$schema" = 'https://starship.rs/config-schema.json'
 
-# Increase timeouts: slow commands (uv python on Windows) and directory scans
+# Increase timeouts: slow commands (git on lustre) and directory scans
 # (networked filesystems like lustre on HPC can exceed the 30ms scan default)
-command_timeout = 1000
+command_timeout = 2000
 scan_timeout = 1000
 
 # Prompt format
@@ -58,7 +58,9 @@ style = "bold red"
 
 [python]
 symbol = " "
-format = '[${symbol}${pyenv_prefix}(${version} )(\($virtualenv\) )]($style)'
+# Show the venv NAME only — no ${version}, so starship never runs the (slow on
+# lustre) venv python and never hits the command_timeout warning.
+format = '[${symbol}(\($virtualenv\) )]($style)'
 style = "bold #fab387"
 # Only detect in venv folders (faster)
 detect_extensions = []
