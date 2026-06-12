@@ -104,6 +104,8 @@ bind '"\e[B": history-search-forward' 2>/dev/null
 export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border'
 command -v fd >/dev/null 2>&1 && export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
 
+# take over the prompt even if a framework (oh-my-bash, bash-it) set one earlier
+PROMPT_COMMAND=""
 command -v starship >/dev/null 2>&1 && eval "$(starship init bash)"
 command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init bash --cmd cd)"
 

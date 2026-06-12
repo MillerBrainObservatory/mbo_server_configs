@@ -23,7 +23,9 @@ export MBO_LSM="$MBO_DATA/lsm"
 export MBO_USER="${MBO_USER:-$MBO_SCRATCH/${USER:-$(id -un)}}"
 
 # uv: home is 40 GB with strict inode limits, so cache + managed pythons live on
-# your scratch. cache and target differ -> copy instead of hardlink.
-export UV_LINK_MODE=copy
+# your scratch — the same filesystem as venvs there, so hardlink installs (instant,
+# no data copied, shares inodes with the cache). uv falls back to copy on its own
+# if a venv is on a different filesystem.
+export UV_LINK_MODE=hardlink
 export UV_CACHE_DIR="${UV_CACHE_DIR:-$MBO_USER/.uv/cache}"
 export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$MBO_USER/.uv/python}"
