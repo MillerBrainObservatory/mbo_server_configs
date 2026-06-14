@@ -18,6 +18,16 @@ export PATH
 export EDITOR=nvim
 export VISUAL=nvim
 
+# XDG dirs: the Lustre home is small and quota-limited (see env.sh). Keep tool
+# data on scratch; keep volatile state + cache node-local so neither fills home.
+_u="${USER:-$(id -un)}"
+export XDG_DATA_HOME="${XDG_DATA_HOME:-$MBO_USER/.local/share}"
+export XDG_STATE_HOME="${XDG_STATE_HOME:-${TMPDIR:-/tmp}/$_u/state}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${TMPDIR:-/tmp}/$_u/cache}"
+mkdir -p "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME" 2>/dev/null
+chmod 700 "${TMPDIR:-/tmp}/$_u" 2>/dev/null
+unset _u
+
 # use this repo's starship prompt regardless of ~/.config symlinks
 export STARSHIP_CONFIG="$_mbo_dir/../starship.toml"
 
