@@ -45,8 +45,8 @@ alias cdlsm='cd "$MBO_LSM"'
 alias cdscratch='cd "$MBO_SCRATCH"'
 alias cdme='cd "$MBO_USER"'
 
-# mbo_utilities shared venv
-alias mbo-activate='source "$MBO_ENV/bin/activate"'
+# activate a shared venv (default: mbo). e.g. mbo-activate mbo_dev
+mbo-activate() { source "$MBO_ENVS/${1:-mbo}/bin/activate"; }
 mbo-run() {
     if [ -z "$1" ]; then echo "usage: mbo-run <command> [args...]"; return 1; fi
     local exe="$MBO_ENV/bin/$1"; shift
