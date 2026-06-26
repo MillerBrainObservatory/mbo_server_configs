@@ -18,8 +18,10 @@ export PATH
 export EDITOR=nvim
 export VISUAL=nvim
 
-# XDG dirs: the Lustre home is small and quota-limited (see env.sh). Keep tool
-# data on scratch; keep volatile state + cache node-local so neither fills home.
+# XDG dirs (nvim startup on Lustre): home is small + inode-capped (see env.sh) and
+# can't hold lazy.nvim's many plugin files, so DATA (plugins) lives on scratch.
+# STATE + CACHE (incl. the lua bytecode cache vim.loader writes) stay node-local on
+# /tmp, so startup and editing avoid slow Lustre metadata ops.
 _u="${USER:-$(id -un)}"
 export XDG_DATA_HOME="${XDG_DATA_HOME:-$MBO_USER/.local/share}"
 export XDG_STATE_HOME="${XDG_STATE_HOME:-${TMPDIR:-/tmp}/$_u/state}"

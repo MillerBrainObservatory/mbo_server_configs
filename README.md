@@ -51,24 +51,23 @@ New-ItemProperty -Path "HKLM:\SOFTWARE\OpenSSH" -Name DefaultShell -Value "C:\Pr
 
 ## hpc (rockefeller)
 
-Shared software (CLI tools, neovim, `mbo_utilities` venv, repos) lives under `/lustre/fs8/mbo/scratch/mbo_soft`, installed separately. Nothing to install per user — just source it.
+Shared software (CLI tools, neovim, `mbo_utilities` venv, repos) lives under `/lustre/fs8/mbo/scratch/mbo_soft`. Nothing to install per user — one command wires your shell and nvim config to it.
 
 ### new user
 
-Run once (you must be in the `mbo` group — check with `groups`):
+Run once (you must be in the `mbo` group — check with `groups`). Idempotent; re-run it if your shell or nvim drifts:
 
 ```bash
-grep -q 'config/hpc/mbo.sh' ~/.bashrc || \
-  echo 'source /lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs/config/hpc/mbo.sh' >> ~/.bashrc
-mkdir -p /lustre/fs8/mbo/scratch/$USER
+bash /lustre/fs8/mbo/scratch/mbo_soft/repos/mbo_server_configs/config/hpc/setup.sh
 exec bash
 ```
 
-Keep that line at the end of `~/.bashrc` if you have a prompt framework (oh-my-bash, etc.).
+It adds `source .../mbo.sh` to `~/.bashrc` (at the end, after any prompt framework), checks out the neovim config submodule, links it to `~/.config/nvim`, and creates your scratch dir.
 
 ### what it does (hpc)
 
 - PATH: shared bin (`$MBO_BIN`) + neovim
+- nvim: config linked to `config/nvim`; plugins on scratch, cache + undo node-local (`$TMPDIR`) so startup stays fast on Lustre
 - locations: `$MBO_ROOT` `$MBO_SCRATCH` `$MBO_SOFT` `$MBO_DATA` `$MBO_USER`; `cdsoft cddata cdlbm cdlsm cdscratch cdme cdrepos`
 - python: `mbo`, `mbo-activate`, `mbo-run <cmd>` (venv at `$MBO_ENV`)
 - transfer: `mbo-stage <path-under-mbo_data> [dest]`, `mbo-pull`, `mbo-push`
@@ -112,6 +111,7 @@ mbo_server_configs/
 │   ├── hpc/
 │   │   ├── env.sh      # locations + uv env (single source of truth)
 │   │   ├── mbo.sh      # shell setup, aliases, helpers (sources env.sh)
+│   │   ├── setup.sh    # one-time per-user bootstrap (bashrc + nvim link)
 │   │   └── job.sbatch.template
 │   ├── starship.toml
 │   ├── vimrc
