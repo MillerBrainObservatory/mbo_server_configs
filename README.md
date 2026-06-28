@@ -38,8 +38,8 @@ History prefix search: type a prefix (e.g. `uv run mbo`), press Up/Down to step 
 - listing: `ls` `lsv` `la` `lt` (eza); `cat` (bat)
 - navigation: `..` `...`; `cd <name>` smart jump (zoxide); `mbospace` → `Y:`, `s1data` → `X:`
 - git: `gs ga gc gp gl gd gco glog`
-- `mbohelp` git / gpu / uv / pytorch cheatsheet
-- starship prompt, fastfetch on startup
+- `mbohelp` full cheatsheet: mbo / lsp / uv / pytorch / gpu / git / shell
+- starship prompt; fastfetch + quick reference (nav / git / uv) on startup
 
 profile: `config/powershell/profile.ps1` (symlinked to `Documents/PowerShell/Microsoft.PowerShell_profile.ps1`).
 
