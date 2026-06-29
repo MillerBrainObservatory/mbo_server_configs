@@ -50,28 +50,38 @@ function glog { git log --oneline --graph --decorate -20 @args }
 # mbohelp: full cheatsheet (mbo / lsp / uv / pytorch / gpu / git / shell)
 function mbohelp {
     Write-Host ""
+    Write-Host "  env" -ForegroundColor Cyan
+    Write-Host "    .venv\Scripts\Activate.ps1   activate the venv (Windows)" -ForegroundColor Gray
+    Write-Host "    source .venv/bin/activate    activate the venv (Unix)" -ForegroundColor Gray
+    Write-Host "    deactivate                   exit the venv" -ForegroundColor Gray
+    Write-Host "    (activated: drop the uv run prefix; else cd to the .venv folder, then uv run)" -ForegroundColor DarkGray
+    Write-Host ""
     Write-Host "  mbo / viewer" -ForegroundColor Cyan
-    Write-Host "    mbo                       open the viewer (file dialog)" -ForegroundColor Gray
-    Write-Host "    mbo <path>                open a file or folder" -ForegroundColor Gray
-    Write-Host "    mbo <path> --metadata     print metadata only" -ForegroundColor Gray
-    Write-Host "    mbo info <path>           shape / dtype / dims" -ForegroundColor Gray
-    Write-Host "    mbo convert <in> <out>    convert tiff / zarr / h5 / bin" -ForegroundColor Gray
-    Write-Host "    mbo formats               list supported formats" -ForegroundColor Gray
-    Write-Host "    mbo init [path]           create starter notebooks" -ForegroundColor Gray
-    Write-Host "    mbo gpu                   list GPUs" -ForegroundColor Gray
-    Write-Host "    mbo shortcut              desktop icon for this env" -ForegroundColor Gray
-    Write-Host "    mbo hpc <cmd>             submit SLURM jobs" -ForegroundColor Gray
-    Write-Host "    mbo --check-install       verify the install" -ForegroundColor Gray
-    Write-Host "    jupyter lab .             notebook in current dir" -ForegroundColor Gray
+    Write-Host "    uv run mbo                       open the viewer (file dialog)" -ForegroundColor Gray
+    Write-Host "    uv run mbo <path>                open a file or folder" -ForegroundColor Gray
+    Write-Host "    uv run mbo <path> --metadata     print metadata only" -ForegroundColor Gray
+    Write-Host "    uv run mbo info <path>           shape / dtype / dims" -ForegroundColor Gray
+    Write-Host "    uv run mbo convert <in> <out>    convert tiff / zarr / h5 / bin" -ForegroundColor Gray
+    Write-Host "    uv run mbo formats               list supported formats" -ForegroundColor Gray
+    Write-Host "    uv run mbo init [path]           create starter notebooks" -ForegroundColor Gray
+    Write-Host "    uv run mbo gpu                   list GPUs" -ForegroundColor Gray
+    Write-Host "    uv run mbo shortcut              desktop icon for this env" -ForegroundColor Gray
+    Write-Host "    uv run mbo hpc <cmd>             submit SLURM jobs" -ForegroundColor Gray
+    Write-Host "    uv run mbo --check-install       verify the install" -ForegroundColor Gray
+    Write-Host "    uv run jupyter lab .             notebook in current dir" -ForegroundColor Gray
+    Write-Host "    uv run ipython                   interactive shell" -ForegroundColor Gray
+    Write-Host "    uv run isoview init [path]       scaffold isoview scripts" -ForegroundColor Gray
+    Write-Host "    uv run isoview info <path>       isoview metadata + config" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  lsp / suite2p" -ForegroundColor Cyan
-    Write-Host "    lsp <in> <out>                       run the pipeline" -ForegroundColor Gray
-    Write-Host "    lsp <in> <out> --planes 1 2 3        specific z-planes (1-indexed)" -ForegroundColor Gray
-    Write-Host "    lsp <in> <out> --num-timepoints 500  quick test, first N frames" -ForegroundColor Gray
-    Write-Host "    lsp <in> <out> --rastermap           add rastermap embedding" -ForegroundColor Gray
-    Write-Host "    lsp <in> <out> --ops-file ops.json   start from saved ops" -ForegroundColor Gray
-    Write-Host "    lsp <in> <out> --algorithm cellpose --diameter 8  cellpose detection" -ForegroundColor Gray
-    Write-Host "    lsp --list-ops                       list all params + defaults" -ForegroundColor Gray
+    Write-Host "    uv run lsp <in> <out>                       run the pipeline" -ForegroundColor Gray
+    Write-Host "    uv run lsp <in> <out> --planes 1 2 3        specific z-planes (1-indexed)" -ForegroundColor Gray
+    Write-Host "    uv run lsp <in> <out> --num-timepoints 500  quick test, first N frames" -ForegroundColor Gray
+    Write-Host "    uv run lsp <in> <out> --rastermap           add rastermap embedding" -ForegroundColor Gray
+    Write-Host "    uv run lsp <in> <out> --ops-file ops.json   start from saved ops" -ForegroundColor Gray
+    Write-Host "    uv run lsp <in> <out> --algorithm cellpose --diameter 8  cellpose detection" -ForegroundColor Gray
+    Write-Host "    uv run lsp --list-ops                       list all params + defaults" -ForegroundColor Gray
+    Write-Host "    uv run suite2p                              suite2p GUI" -ForegroundColor Gray
     Write-Host "    (flags use dashes, not underscores)" -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "  uv / python" -ForegroundColor Cyan
@@ -81,8 +91,6 @@ function mbohelp {
     Write-Host "    uv pip install .[all]                       current project, all extras" -ForegroundColor Gray
     Write-Host "    uv pip list                                 packages in this env" -ForegroundColor Gray
     Write-Host "    uv pip show torch                           show one package" -ForegroundColor Gray
-    Write-Host "    uv run <cmd>                                run in project env (no activate)" -ForegroundColor Gray
-    Write-Host "    .venv\Scripts\Activate.ps1                  activate the venv" -ForegroundColor Gray
     Write-Host ""
     Write-Host "  pytorch" -ForegroundColor Cyan
     Write-Host "    uv pip uninstall torch torchvision          remove existing first" -ForegroundColor Gray
