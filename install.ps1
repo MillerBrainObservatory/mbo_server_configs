@@ -124,7 +124,11 @@ function Confirm-InstallGroup {
     Write-Host "  $Description" -ForegroundColor Gray
     Write-Host "    $($Items -join ', ')" -ForegroundColor White
     Write-Host ""
-    $response = Read-Host "  Install? [Y/n]"
+    $response = Read-Host "  Install? [y/n/a=all]"
+    if ($response -match "^[Aa]") {
+        $script:AutoInstall = $true
+        return $true
+    }
     return ($response -eq "" -or $response -match "^[Yy]")
 }
 
@@ -977,6 +981,9 @@ function Install-Configs {
         $configSource = "$CONFIG_ROOT\config"
     }
 
+    # resolve pwsh 7 profile via MyDocuments so OneDrive folder redirection is honored
+    $psProfile = Join-Path ([Environment]::GetFolderPath('MyDocuments')) "PowerShell\Microsoft.PowerShell_profile.ps1"
+
     # symlinks
     $links = @{
         "$env:LOCALAPPDATA\nvim" = "$configSource\nvim"
@@ -984,7 +991,7 @@ function Install-Configs {
         "$env:USERPROFILE\.config\lazygit" = "$configSource\lazygit"
         "$env:USERPROFILE\.config\starship.toml" = "$configSource\starship.toml"
         "$env:USERPROFILE\.config\fastfetch" = "$configSource\fastfetch"
-        "$env:USERPROFILE\Documents\PowerShell\Microsoft.PowerShell_profile.ps1" = "$configSource\powershell\profile.ps1"
+        $psProfile = "$configSource\powershell\profile.ps1"
     }
 
     foreach ($link in $links.GetEnumerator()) {
