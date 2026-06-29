@@ -508,6 +508,28 @@ function Install-Neovim {
 
 # VSCODE
 
+function Resolve-UserPath {
+    param([string]$InputPath)
+
+    if ([string]::IsNullOrWhiteSpace($InputPath)) { return $null }
+
+    $p = $InputPath.Trim().Trim('"').Trim("'")
+
+    if ($p -eq "~") {
+        $p = $env:USERPROFILE
+    } elseif ($p -match '^~[\\/]') {
+        $p = Join-Path $env:USERPROFILE $p.Substring(2)
+    }
+
+    $p = [System.Environment]::ExpandEnvironmentVariables($p)
+
+    try {
+        return [System.IO.Path]::GetFullPath($p)
+    } catch {
+        return $null
+    }
+}
+
 function Install-VSCode {
     if (Test-CommandExists "code") {
         Write-Ok "vscode already installed"
@@ -543,6 +565,8 @@ function Install-VSCode {
 }
 
 function Set-VSCodeConfig {
+    param([string]$PythonEnvPath)
+
     Write-Info "configuring vscode..."
 
     $settingsPath = "$env:APPDATA\Code\User\settings.json"
@@ -576,20 +600,38 @@ function Set-VSCodeConfig {
         icon = "terminal-powershell"
     }
 
-    # add mbo/envs to python venv folders
-    $mboEnvs = "$env:USERPROFILE\mbo\envs"
-    if (-not $settings.ContainsKey("python.venvFolders")) {
-        $settings["python.venvFolders"] = @()
+    # drop stale ~/mbo/envs (mbo dir no longer used)
+    if ($settings.ContainsKey("python.venvFolders")) {
+        $cleaned = @($settings["python.venvFolders"] | Where-Object {
+            $_ -ne "~/mbo/envs" -and $_ -ne "$env:USERPROFILE\mbo\envs"
+        })
+        if ($cleaned.Count -eq 0) {
+            $settings.Remove("python.venvFolders")
+        } else {
+            $settings["python.venvFolders"] = $cleaned
+        }
     }
-    $venvFolders = [System.Collections.ArrayList]@($settings["python.venvFolders"])
-    if ($venvFolders -notcontains $mboEnvs -and $venvFolders -notcontains "~/mbo/envs") {
-        $venvFolders.Add("~/mbo/envs") | Out-Null
-        $settings["python.venvFolders"] = @($venvFolders)
+
+    # point vscode at a user-specified folder of python environments
+    # envs live one level deep as <folder>/<name>/.venv, so use a glob that the
+    # Python Environments extension expands during discovery
+    if ($PythonEnvPath) {
+        $envGlob = ($PythonEnvPath -replace '\\', '/').TrimEnd('/') + "/*/.venv"
+
+        if (-not $settings.ContainsKey("python-envs.globalSearchPaths")) {
+            $settings["python-envs.globalSearchPaths"] = @()
+        }
+        $searchPaths = [System.Collections.ArrayList]@($settings["python-envs.globalSearchPaths"])
+        if ($searchPaths -notcontains $envGlob) {
+            $searchPaths.Add($envGlob) | Out-Null
+        }
+        $settings["python-envs.globalSearchPaths"] = @($searchPaths)
     }
 
     # save
     $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding UTF8
-    Write-Ok "vscode configured (pwsh terminal, python envs: ~/mbo/envs)"
+    $envNote = if ($PythonEnvPath) { ", python envs: $PythonEnvPath" } else { "" }
+    Write-Ok "vscode configured (pwsh terminal$envNote)"
 }
 
 # CLI TOOLS (from GitHub releases)
@@ -1035,6 +1077,7 @@ function Get-ConfigurationPreferences {
     $prefs = @{
         GitEditor = $null
         ConfigureVSCode = $true
+        PythonEnvPath = $null
         ConfigureWindowsTerminal = $true
     }
 
@@ -1080,8 +1123,8 @@ function Get-ConfigurationPreferences {
 
     # VS Code Configuration
     Write-Host "  VS Code Configuration" -ForegroundColor Yellow
-    Write-Host "  Configure VS Code to use PowerShell as default terminal" -ForegroundColor Gray
-    Write-Host "  and add ~/mbo/envs to Python virtual environment folders." -ForegroundColor Gray
+    Write-Host "  Set PowerShell as default terminal and optionally point VS Code" -ForegroundColor Gray
+    Write-Host "  at a folder it scans for Python virtual environments." -ForegroundColor Gray
     Write-Host ""
     Write-Host "    [Y] Configure VS Code (recommended)" -ForegroundColor White
     Write-Host "    [N] Skip VS Code configuration" -ForegroundColor White
@@ -1091,6 +1134,31 @@ function Get-ConfigurationPreferences {
     $prefs.ConfigureVSCode = ($response -eq "" -or $response -match "^[Yy]")
     Write-Host "  -> $(if ($prefs.ConfigureVSCode) { 'Yes' } else { 'Skipped' })" -ForegroundColor $(if ($prefs.ConfigureVSCode) { 'Green' } else { 'DarkGray' })
     Write-Host ""
+
+    if ($prefs.ConfigureVSCode) {
+        Write-Host "  Python environments folder (optional)" -ForegroundColor Yellow
+        Write-Host "  Parent folder holding your envs, e.g. ~/repos or ~/projects." -ForegroundColor Gray
+        Write-Host "  Tip: keep each env in its own subfolder as <name>/.venv" -ForegroundColor Gray
+        Write-Host "       (~/repos/env1/.venv, ~/repos/env2/.venv); VS Code then lists them all." -ForegroundColor Gray
+        Write-Host "  Enter to skip." -ForegroundColor Gray
+        Write-Host ""
+
+        while ($true) {
+            $envInput = Read-Host "  Env folder"
+            if ([string]::IsNullOrWhiteSpace($envInput)) {
+                Write-Host "  -> Skipped" -ForegroundColor DarkGray
+                break
+            }
+            $resolved = Resolve-UserPath $envInput
+            if ($resolved -and (Test-Path $resolved -PathType Container)) {
+                $prefs.PythonEnvPath = $resolved
+                Write-Host "  -> $resolved" -ForegroundColor Green
+                break
+            }
+            Write-Warn "folder not found: $envInput"
+        }
+        Write-Host ""
+    }
 
     # Windows Terminal Configuration
     Write-Host "  Windows Terminal Configuration" -ForegroundColor Yellow
@@ -1292,7 +1360,7 @@ function Main {
 
     # Apply VS Code configuration if requested
     if ($preferences.ConfigureVSCode) {
-        Set-VSCodeConfig
+        Set-VSCodeConfig -PythonEnvPath $preferences.PythonEnvPath
     }
 
     # Apply Windows Terminal configuration if requested
