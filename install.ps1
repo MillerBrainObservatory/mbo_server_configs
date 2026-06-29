@@ -958,6 +958,8 @@ function Install-Configs {
             return
         }
 
+        $oldErrorPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
         if (Test-Path "$CONFIG_ROOT\.git") {
             Push-Location $CONFIG_ROOT
             $null = git pull --ff-only 2>&1
@@ -971,6 +973,7 @@ function Install-Configs {
             $null = git clone --recursive "$REPO_URL.git" $CONFIG_ROOT 2>&1
             Write-Ok "configs cloned"
         }
+        $ErrorActionPreference = $oldErrorPref
         $configSource = "$CONFIG_ROOT\config"
     }
 
