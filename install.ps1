@@ -203,17 +203,25 @@ function Test-FontInstalled {
     param([string]$FontName)
     $fontsDir = "$env:WINDIR\Fonts"
     $userFontsDir = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
-    $regPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
 
-    # check registry (most reliable)
-    $regFonts = Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue
-    if ($regFonts.PSObject.Properties.Name -match [regex]::Escape($FontName)) {
-        return $true
+    # check font files on disk
+    if (Test-Path "$fontsDir\$FontName") { return $true }
+    if (Test-Path "$userFontsDir\$FontName") { return $true }
+
+    # check registry: font filename is stored as the property VALUE, not the name
+    foreach ($regPath in @(
+        "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts",
+        "HKCU:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"
+    )) {
+        $regFonts = Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue
+        if ($regFonts) {
+            foreach ($prop in $regFonts.PSObject.Properties) {
+                if ($prop.Value -is [string] -and $prop.Value -match [regex]::Escape($FontName)) {
+                    return $true
+                }
+            }
+        }
     }
-
-    # check font directories
-    if (Test-Path "$fontsDir\$FontName" -ErrorAction SilentlyContinue) { return $true }
-    if (Test-Path "$userFontsDir\$FontName" -ErrorAction SilentlyContinue) { return $true }
 
     return $false
 }
@@ -728,18 +736,22 @@ function Install-Python {
         Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
         Remove-Item $extractPath -Recurse -Force -ErrorAction SilentlyContinue
 
+        $uvExe = "$LOCAL_BIN\uv.exe"
         Write-Ok "uv installed"
     } else {
-        Write-Ok "uv already installed: $(uv --version)"
+        # resolve the existing uv (may be on PATH but not in LOCAL_BIN)
+        $uvExe = (Get-Command uv -ErrorAction SilentlyContinue).Source
+        if (-not $uvExe) { $uvExe = "$LOCAL_BIN\uv.exe" }
+        Write-Ok "uv already installed: $(& $uvExe --version)"
     }
 
     # install python 3.12
-    $pythonInstalled = & "$LOCAL_BIN\uv.exe" python list 2>$null | Select-String "3\.12"
+    $pythonInstalled = & $uvExe python list 2>$null | Select-String "3\.12"
     if ($pythonInstalled) {
         Write-Ok "python 3.12 already installed"
     } else {
         Write-Info "installing python 3.12 via uv..."
-        $null = & "$LOCAL_BIN\uv.exe" python install 3.12 2>&1
+        $null = & $uvExe python install 3.12 2>&1
         Write-Ok "python 3.12 installed"
     }
 
@@ -751,7 +763,7 @@ function Install-Python {
         Write-Info "creating neovim python venv..."
         $oldErrorPref = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
-        & "$LOCAL_BIN\uv.exe" venv $nvimVenv --python 3.12 2>&1 | Out-Null
+        & $uvExe venv $nvimVenv --python 3.12 2>&1 | Out-Null
         $ErrorActionPreference = $oldErrorPref
 
         if (Test-Path $nvimPython) {
@@ -772,7 +784,7 @@ function Install-Python {
             Write-Info "installing pynvim..."
             $oldErrorPref = $ErrorActionPreference
             $ErrorActionPreference = "Continue"
-            & "$LOCAL_BIN\uv.exe" pip install pynvim --python $nvimPython 2>&1 | Out-Null
+            & $uvExe pip install pynvim --python $nvimPython 2>&1 | Out-Null
             $ErrorActionPreference = $oldErrorPref
             Write-Ok "pynvim installed"
         }
@@ -782,12 +794,12 @@ function Install-Python {
     $oldErrorPref = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     foreach ($tool in @("ruff", "ty")) {
-        $toolList = & "$LOCAL_BIN\uv.exe" tool list 2>&1
+        $toolList = & $uvExe tool list 2>&1
         if ($toolList -match $tool) {
             Write-Ok "$tool already installed"
         } else {
             Write-Info "installing $tool..."
-            & "$LOCAL_BIN\uv.exe" tool install $tool 2>&1 | Out-Null
+            & $uvExe tool install $tool 2>&1 | Out-Null
             Write-Ok "$tool installed"
         }
     }
